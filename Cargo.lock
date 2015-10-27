@@ -2,9 +2,18 @@
 name = "mandelbrot"
 version = "0.2.0"
 dependencies = [
+ "atomic_chunks_mut 0.1.0 (git+https://github.com/jimblandy/atomic-chunks-mut.git)",
  "crossbeam 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "num 0.1.34 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "atomic_chunks_mut"
+version = "0.1.0"
+source = "git+https://github.com/jimblandy/atomic-chunks-mut.git#6d43a652f5c4df3a191c9d29e9f5d60cc677c470"
+dependencies = [
+ "crossbeam 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

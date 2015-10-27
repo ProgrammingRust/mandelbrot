@@ -145,8 +145,10 @@ fn measure_elapsed_time<F: FnOnce()>(f: F) -> Duration {
 
 
 extern crate crossbeam;
+extern crate atomic_chunks_mut;
 
-use std::sync::Mutex;
+use atomic_chunks_mut::AtomicChunksMut;
+
 use std::io::Write;
 
 fn main() {
@@ -178,32 +180,22 @@ fn main() {
                     //100, 200, 300, 400, 500, 600, 700, 800, 900, 1000
                     ].iter() {
         let band_rows = bounds.1 / 400;
-
+        let bands = AtomicChunksMut::new(&mut pixels, band_rows * bounds.0);
         let dt = measure_elapsed_time(|| {
-            let bands = Mutex::new(pixels.chunks_mut(band_rows * bounds.0).enumerate());
             crossbeam::scope(|scope| {
                 for i in 0..*threads {
                     scope.spawn(|| {
                         let mut count = 0;
-                        loop {
-                            match {
-                                let mut guard = bands.lock().unwrap();
-                                guard.next()
-                            }
-                            {
-                                None => { return; }
-                                Some((i, band)) => {
-                                    count += 1;
-                                    let top = band_rows * i;
-                                    let height = band.len() / bounds.0;
-                                    let band_bounds = (bounds.0, height);
-                                    let band_upper_left = pixel_to_point(bounds, (0, top),
-                                                                         upper_left, lower_right);
-                                    let band_lower_right = pixel_to_point(bounds, (bounds.0, top + height),
-                                                                          upper_left, lower_right);
-                                    render(band, band_bounds, band_upper_left, band_lower_right);
-                                }
-                            }
+                        for (i, band) in &bands {
+                            count += 1;
+                            let top = i;
+                            let height = band.len() / bounds.0;
+                            let band_bounds = (bounds.0, height);
+                            let band_upper_left = pixel_to_point(bounds, (0, top),
+                                                                 upper_left, lower_right);
+                            let band_lower_right = pixel_to_point(bounds, (bounds.0, top + height),
+                                                                  upper_left, lower_right);
+                            render(band, band_bounds, band_upper_left, band_lower_right);
                         }
                     });
                 }
