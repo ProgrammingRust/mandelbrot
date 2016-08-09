@@ -134,6 +134,8 @@ fn write_bitmap(filename: &str, pixels: &[u8], bounds: (usize, usize))
     Ok(())
 }
 
+extern crate crossbeam;
+
 use std::io::Write;
 
 fn main() {
@@ -158,7 +160,25 @@ fn main() {
         .expect("error parsing lower right corner point");
 
     let mut pixels = vec![0; bounds.0 * bounds.1];
-    render(&mut pixels[..], bounds, upper_left, lower_right);
+
+    let threads = 8;
+    let shard_rows = bounds.1 / threads + 1;
+
+    {
+        let shards : Vec<_> = pixels.chunks_mut(shard_rows * bounds.0).collect();
+        crossbeam::scope(|scope| {
+            for (i, shard) in shards.into_iter().enumerate() {
+                let top = shard_rows * i;
+                let height = shard.len() / bounds.0;
+                let shard_bounds = (bounds.0, height);
+                scope.spawn(move || {
+                    render(shard, shard_bounds,
+                           pixel_to_point(bounds, (0, top), upper_left, lower_right),
+                           pixel_to_point(bounds, (bounds.0, top + height), upper_left, lower_right));
+                });
+            }
+        });
+    }
 
     write_bitmap(&args[1], &pixels[..], bounds).expect("error writing PNG file");
 }

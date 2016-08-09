@@ -6,3 +6,4 @@ authors = ["Jim Blandy <jimb@red-bean.com>"]
 [dependencies]
 num = "0.1.34"
 image = "0.10.1"
+crossbeam = "0.2.9"
