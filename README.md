@@ -35,3 +35,8 @@ Different commits show different implementation strategies:
     uses the Rayon library instead of Crossbeam. Rayon provides a
     *parallel iterator* API that makes our code much simpler.  It looks
     a lot like Rust code that uses plain old iterators.
+
+## License
+
+The example code in this directory and its subdirectories is licensed under the
+terms of the MIT license. See [LICENSE-MIT](LICENSE-MIT) for details.
