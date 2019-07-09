@@ -124,12 +124,12 @@ use image::ColorType;
 fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
     -> Result<()>
 {
-    let output = try!(File::create(filename));
+    let output = (File::create(filename)?;
 
     let encoder = PNGEncoder::new(output);
-    try!(encoder.encode(&pixels[..],
+    encoder.encode(&pixels[..],
                         bounds.0 as u32, bounds.1 as u32,
-                        ColorType::Gray(8)));
+                        ColorType::Gray(8))?;
 
     Ok(())
 }
@@ -183,7 +183,7 @@ fn main() {
             let bands = Mutex::new(pixels.chunks_mut(band_rows * bounds.0).enumerate());
             crossbeam::scope(|scope| {
                 for i in 0..*threads {
-                    scope.spawn(|| {
+                    scope.spawn(|_| {
                         let mut count = 0;
                         loop {
                             match {
