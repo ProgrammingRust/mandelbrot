@@ -5,5 +5,5 @@ authors = ["Jim Blandy <jimb@red-bean.com>"]
 
 [dependencies]
 num = "0.1.34"
-image = "0.10.1"
+image = "0.10.4"
 rayon = "0.4.0"
