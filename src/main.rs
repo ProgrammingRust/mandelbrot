@@ -174,16 +174,14 @@ fn main() {
 
     let mut pixels = vec![0; bounds.0 * bounds.1];
 
-    for threads in [1,  2,  3,  4,  5,  6,  7,  8,
-                    9, 10, 11, 12, 13, 14, 15, 16,
-                    20, 30, 40, 50, 60, 70, 80, 90,
-                    //100, 200, 300, 400, 500, 600, 700, 800, 900, 1000
-                    ].iter() {
-        let band_rows = bounds.1 / 400;
+    let threads = 8;
+    let band_rows = bounds.1 / 400;
+
+    {
         let bands = AtomicChunksMut::new(&mut pixels, band_rows * bounds.0);
         let dt = measure_elapsed_time(|| {
             crossbeam::scope(|scope| {
-                for i in 0..*threads {
+                for i in 0..threads {
                     scope.spawn(|| {
                         let mut count = 0;
                         for (i, band) in &bands {
@@ -201,9 +199,6 @@ fn main() {
                 }
             });
         });
-        println!("{:4} {:.3}",
-                 threads,
-                 dt.as_secs() as f64 + dt.subsec_nanos() as f64 * 1e-9);
     }
 
     write_image(&args[1], &pixels[..], bounds).expect("error writing PNG file");
