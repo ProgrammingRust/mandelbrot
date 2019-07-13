@@ -134,16 +134,6 @@ fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
     Ok(())
 }
 
-
-use std::time::{Instant, Duration};
-
-fn measure_elapsed_time<F: FnOnce()>(f: F) -> Duration {
-    let t0 = Instant::now();
-    f();
-    Instant::now() - t0
-}
-
-
 extern crate rayon;
 
 use std::io::Write;
