@@ -121,7 +121,7 @@ use image::ColorType;
 
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
-fn write_bitmap(filename: &str, pixels: &[u8], bounds: (usize, usize))
+fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
     -> Result<()>
 {
     let output = try!(File::create(filename));
@@ -160,5 +160,5 @@ fn main() {
     let mut pixels = vec![0; bounds.0 * bounds.1];
     render(&mut pixels[..], bounds, upper_left, lower_right);
 
-    write_bitmap(&args[1], &pixels[..], bounds).expect("error writing PNG file");
+    write_image(&args[1], &pixels[..], bounds).expect("error writing PNG file");
 }
