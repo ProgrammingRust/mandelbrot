@@ -121,7 +121,7 @@ use image::ColorType;
 
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
-fn write_bitmap(filename: &str, pixels: &[u8], bounds: (usize, usize))
+fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
     -> Result<()>
 {
     let output = try!(File::create(filename));
@@ -206,5 +206,5 @@ fn main() {
                  dt.as_secs() as f64 + dt.subsec_nanos() as f64 * 1e-9);
     }
 
-    write_bitmap(&args[1], &pixels[..], bounds).expect("error writing PNG file");
+    write_image(&args[1], &pixels[..], bounds).expect("error writing PNG file");
 }
