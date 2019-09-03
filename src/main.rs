@@ -145,11 +145,7 @@ fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
     Ok(())
 }
 
-extern crate crossbeam;
-extern crate atomic_chunks_mut;
-
 use atomic_chunks_mut::AtomicChunksMut;
-
 use std::io::Write;
 
 fn main() {
