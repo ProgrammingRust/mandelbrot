@@ -145,9 +145,6 @@ fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
     Ok(())
 }
 
-
-extern crate crossbeam;
-
 use std::sync::Mutex;
 use std::io::Write;
 
