@@ -1,4 +1,3 @@
-extern crate num;
 use num::Complex;
 
 extern crate rayon;
@@ -129,8 +128,6 @@ fn render(pixels: &mut [u8],
         }
     }
 }
-
-extern crate image;
 
 use image::ColorType;
 use image::png::PNGEncoder;
