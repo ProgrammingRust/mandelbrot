@@ -149,15 +149,6 @@ fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
 }
 
 
-use std::time::{Instant, Duration};
-
-fn measure_elapsed_time<F: FnOnce()>(f: F) -> Duration {
-    let t0 = Instant::now();
-    f();
-    Instant::now() - t0
-}
-
-
 extern crate crossbeam;
 
 use std::sync::Mutex;
@@ -192,9 +183,8 @@ fn main() {
     {
         let bands = Mutex::new(pixels.chunks_mut(band_rows * bounds.0).enumerate());
         crossbeam::scope(|scope| {
-            for i in 0..threads {
+            for _ in 0..threads {
                 scope.spawn(|| {
-                    let mut count = 0;
                     loop {
                         match {
                             let mut guard = bands.lock().unwrap();
@@ -203,7 +193,6 @@ fn main() {
                         {
                             None => { return; }
                             Some((i, band)) => {
-                                count += 1;
                                 let top = band_rows * i;
                                 let height = band.len() / bounds.0;
                                 let band_bounds = (bounds.0, height);
