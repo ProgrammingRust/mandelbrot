@@ -1,6 +1,4 @@
 use num::Complex;
-
-extern crate rayon;
 use rayon::prelude::*;
 
 /// Try to determine if `c` is in the Mandelbrot set, using at most `limit`
