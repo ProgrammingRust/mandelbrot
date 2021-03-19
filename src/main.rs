@@ -1,4 +1,4 @@
-use num::Complex;
+use num::complex::Complex64;
 use rayon::prelude::*;
 
 /// Try to determine if `c` is in the Mandelbrot set, using at most `limit`
@@ -9,8 +9,8 @@ use rayon::prelude::*;
 /// origin. If `c` seems to be a member (more precisely, if we reached the
 /// iteration limit without being able to prove that `c` is not a member),
 /// return `None`.
-fn escape_time(c: Complex<f64>, limit: u32) -> Option<u32> {
-    let mut z = Complex { re: 0.0, im: 0.0 };
+fn escape_time(c: Complex64, limit: u32) -> Option<u32> {
+    let mut z = Complex64 { re: 0.0, im: 0.0 };
     for i in 0..limit {
         z = z * z + c;
         if z.norm_sqr() > 4.0 {
@@ -56,9 +56,9 @@ fn test_parse_pair() {
 
 /// Parse a pair of floating-point numbers separated by a comma as a complex
 /// number.
-fn parse_complex(s: &str) -> Option<Complex<f64>> {
+fn parse_complex(s: &str) -> Option<Complex64> {
     match parse_pair(s, ',') {
-        Some((re, im)) => Some(Complex { re, im }),
+        Some((re, im)) => Some(Complex64 { re, im }),
         None => None
     }
 }
@@ -66,7 +66,7 @@ fn parse_complex(s: &str) -> Option<Complex<f64>> {
 #[test]
 fn test_parse_complex() {
     assert_eq!(parse_complex("1.25,-0.0625"),
-               Some(Complex { re: 1.25, im: -0.0625 }));
+               Some(Complex64 { re: 1.25, im: -0.0625 }));
     assert_eq!(parse_complex(",-0.0625"), None);
 }
 
@@ -79,13 +79,13 @@ fn test_parse_complex() {
 /// plane designating the area our image covers.
 fn pixel_to_point(bounds: (usize, usize),
                   pixel: (usize, usize),
-                  upper_left: Complex<f64>,
-                  lower_right: Complex<f64>)
-    -> Complex<f64>
+                  upper_left: Complex64,
+                  lower_right: Complex64)
+    -> Complex64
 {
     let (width, height) = (lower_right.re - upper_left.re,
                            upper_left.im - lower_right.im);
-    Complex {
+    Complex64 {
         re: upper_left.re + pixel.0 as f64 * width  / bounds.0 as f64,
         im: upper_left.im - pixel.1 as f64 * height / bounds.1 as f64
         // Why subtraction here? pixel.1 increases as we go down,
@@ -96,9 +96,9 @@ fn pixel_to_point(bounds: (usize, usize),
 #[test]
 fn test_pixel_to_point() {
     assert_eq!(pixel_to_point((100, 100), (25, 75),
-                              Complex { re: -1.0, im:  1.0 },
-                              Complex { re:  1.0, im: -1.0 }),
-               Complex { re: -0.5, im: -0.5 });
+                              Complex64 { re: -1.0, im:  1.0 },
+                              Complex64 { re:  1.0, im: -1.0 }),
+               Complex64 { re: -0.5, im: -0.5 });
 }
 
 /// Render a rectangle of the Mandelbrot set into a buffer of pixels.
@@ -109,8 +109,8 @@ fn test_pixel_to_point() {
 /// left and lower-right corners of the pixel buffer.
 fn render(pixels: &mut [u8],
           bounds: (usize, usize),
-          upper_left: Complex<f64>,
-          lower_right: Complex<f64>)
+          upper_left: Complex64,
+          lower_right: Complex64)
 {
     assert!(pixels.len() == bounds.0 * bounds.1);
 
@@ -146,19 +146,13 @@ fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
     Ok(())
 }
 
-use std::io::Write;
-
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() != 5 {
-        writeln!(std::io::stderr(),
-                 "Usage: mandelbrot FILE PIXELS UPPERLEFT LOWERRIGHT")
-            .unwrap();
-        writeln!(std::io::stderr(),
-                 "Example: {} mandel.png 1000x750 -1.20,0.35 -1,0.20",
-                 args[0])
-            .unwrap();
+        eprintln!("Usage: mandelbrot FILE PIXELS UPPERLEFT LOWERRIGHT");
+        eprintln!("Example: {} mandel.png 1000x750 -1.20,0.35 -1,0.20",
+                 args[0]);
         std::process::exit(1);
     }
 
