@@ -8,13 +8,13 @@ use num::Complex;
 /// origin. If `c` seems to be a member (more precisely, if we reached the
 /// iteration limit without being able to prove that `c` is not a member),
 /// return `None`.
-fn escape_time(c: Complex<f64>, limit: u32) -> Option<u32> {
+fn escape_time(c: Complex<f64>, limit: usize) -> Option<usize> {
     let mut z = Complex { re: 0.0, im: 0.0 };
     for i in 0..limit {
-        z = z * z + c;
         if z.norm_sqr() > 4.0 {
             return Some(i);
         }
+        z = z * z + c;
     }
 
     None
@@ -94,10 +94,10 @@ fn pixel_to_point(bounds: (usize, usize),
 
 #[test]
 fn test_pixel_to_point() {
-    assert_eq!(pixel_to_point((100, 100), (25, 75),
+    assert_eq!(pixel_to_point((100, 200), (25, 175),
                               Complex { re: -1.0, im:  1.0 },
                               Complex { re:  1.0, im: -1.0 }),
-               Complex { re: -0.5, im: -0.5 });
+               Complex { re: -0.5, im: -0.75 });
 }
 
 /// Render a rectangle of the Mandelbrot set into a buffer of pixels.
@@ -113,8 +113,8 @@ fn render(pixels: &mut [u8],
 {
     assert!(pixels.len() == bounds.0 * bounds.1);
 
-    for row in 0 .. bounds.1 {
-        for column in 0 .. bounds.0 {
+    for row in 0..bounds.1 {
+        for column in 0..bounds.0 {
             let point = pixel_to_point(bounds, (column, row),
                                        upper_left, lower_right);
             pixels[row * bounds.0 + column] =
@@ -145,19 +145,16 @@ fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
     Ok(())
 }
 
-use std::io::Write;
+use std::env;
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    let args: Vec<String> = env::args().collect();
 
     if args.len() != 5 {
-        writeln!(std::io::stderr(),
-                 "Usage: mandelbrot FILE PIXELS UPPERLEFT LOWERRIGHT")
-            .unwrap();
-        writeln!(std::io::stderr(),
-                 "Example: {} mandel.png 1000x750 -1.20,0.35 -1,0.20",
-                 args[0])
-            .unwrap();
+        eprintln!("Usage: {} FILE PIXELS UPPERLEFT LOWERRIGHT",
+                  args[0]);
+        eprintln!("Example: {} mandel.png 1000x750 -1.20,0.35 -1,0.20",
+                  args[0]);
         std::process::exit(1);
     }
 
