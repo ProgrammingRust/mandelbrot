@@ -1,3 +1,6 @@
+#![warn(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
+
 use num::Complex;
 
 /// Try to determine if `c` is in the Mandelbrot set, using at most `limit`
