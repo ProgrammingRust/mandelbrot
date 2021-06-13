@@ -172,15 +172,15 @@ fn main() {
     let mut pixels = vec![0; bounds.0 * bounds.1];
 
     let threads = 8;
-    let band_rows = bounds.1 / 400 + 1;
+    let rows_per_band = bounds.1 / 400 + 1;
 
     {
-        let bands = AtomicChunksMut::new(&mut pixels, band_rows * bounds.0);
+        let bands = AtomicChunksMut::new(&mut pixels, rows_per_band * bounds.0);
         crossbeam::scope(|scope| {
             for _ in 0..threads {
                 scope.spawn(|| {
                     for (i, band) in &bands {
-                        let top = i;
+                        let top = i * rows_per_band;
                         let height = band.len() / bounds.0;
                         let band_bounds = (bounds.0, height);
                         let band_upper_left = pixel_to_point(bounds, (0, top),
