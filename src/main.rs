@@ -60,10 +60,7 @@ fn test_parse_pair() {
 /// Parse a pair of floating-point numbers separated by a comma as a complex
 /// number.
 fn parse_complex(s: &str) -> Option<Complex<f64>> {
-    match parse_pair(s, ',') {
-        Some((re, im)) => Some(Complex { re, im }),
-        None => None
-    }
+    parse_pair(s, ',').map(|(re, im)| Complex { re, im })
 }
 
 #[test]
@@ -142,7 +139,7 @@ fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
     let output = File::create(filename)?;
 
     let encoder = PNGEncoder::new(output);
-    encoder.encode(&pixels,
+    encoder.encode(pixels,
                    bounds.0 as u32, bounds.1 as u32,
                    ColorType::Gray(8))?;
 
