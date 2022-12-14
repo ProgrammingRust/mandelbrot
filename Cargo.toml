@@ -5,6 +5,8 @@ authors = ["Jim Blandy <jimb@red-bean.com>"]
 edition = "2018"
 
 [dependencies]
+thiserror = "1.0"
 num = "0.4"
 image = "0.13.0"
 rayon = "1"
+rug = "1.18.0"
