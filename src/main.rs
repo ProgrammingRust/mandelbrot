@@ -1,8 +1,3 @@
-#![warn(rust_2018_idioms)]
-#![allow(elided_lifetimes_in_paths)]
-
-extern crate core;
-
 use thiserror::Error as ThisError;
 use rug::{Complex, Float};
 use rayon::prelude::*;
@@ -65,12 +60,12 @@ fn parse_pair<T: Parseable>(s: &str, separator: char) -> Option<(T, T)> {
 
 #[test]
 fn test_parse_pair() {
-    assert_eq!(parse_pair::<i32>("",        ','), None);
-    assert_eq!(parse_pair::<i32>("10,",     ','), None);
-    assert_eq!(parse_pair::<i32>(",10",     ','), None);
-    assert_eq!(parse_pair::<i32>("10,20",   ','), Some((10, 20)));
+    assert_eq!(parse_pair::<i32>("", ','), None);
+    assert_eq!(parse_pair::<i32>("10,", ','), None);
+    assert_eq!(parse_pair::<i32>(",10", ','), None);
+    assert_eq!(parse_pair::<i32>("10,20", ','), Some((10, 20)));
     assert_eq!(parse_pair::<i32>("10,20xy", ','), None);
-    assert_eq!(parse_pair::<f64>("0.5x",    'x'), None);
+    assert_eq!(parse_pair::<f64>("0.5x", 'x'), None);
     assert_eq!(parse_pair::<f64>("0.5x1.5", 'x'), Some((0.5, 1.5)));
 }
 
@@ -78,7 +73,7 @@ fn test_parse_pair() {
 /// number.
 fn parse_complex(s: &str) -> Option<Complex> {
     match parse_pair::<Float>(s, ',') {
-        Some((re, im)) => Some(Complex::with_val(PREC, (re, im) )),
+        Some((re, im)) => Some(Complex::with_val(PREC, (re, im))),
         None => None
     }
 }
@@ -86,7 +81,7 @@ fn parse_complex(s: &str) -> Option<Complex> {
 #[test]
 fn test_parse_complex() {
     assert_eq!(parse_complex("1.25,-0.0625"),
-               Some(Complex::with_val(PREC, (1.25, -0.0625))) );
+               Some(Complex::with_val(PREC, (1.25, -0.0625))));
     assert_eq!(parse_complex(",-0.0625"), None);
 }
 
@@ -101,17 +96,19 @@ fn pixel_to_point(bounds: (usize, usize),
                   pixel: (usize, usize),
                   upper_left: &Complex,
                   lower_right: &Complex)
-    -> Complex
+                  -> Complex
 {
     let (width, height) =
-        ( (lower_right.real() - upper_left.real()).complete(PREC),
-          (upper_left.imag() - lower_right.imag()).complete(PREC) );
+        ((lower_right.real() - upper_left.real()).complete(PREC),
+         (upper_left.imag() - lower_right.imag()).complete(PREC));
 
-    Complex::with_val (PREC,
-                       (upper_left.real() + Float::with_val(PREC, pixel.0 as f64) * width  / Float::with_val(PREC,bounds.0 as f64),
-                             upper_left.imag() - pixel.1 as f64 * height / bounds.1 as f64)
-        // Why subtraction here? pixel.1 increases as we go down,
-        // but the imaginary component increases as we go up.
+    Complex::with_val(PREC,
+                      (
+                          upper_left.real() + Float::with_val(PREC, pixel.0 as f64) * width / bounds.0 as f64,
+                          upper_left.imag() - Float::with_val(PREC,pixel.1 as f64) * height / bounds.1 as f64
+                      ),
+                      // Why subtraction here? pixel.1 increases as we go down,
+                      // but the imaginary component increases as we go up.
     )
 }
 
@@ -119,8 +116,8 @@ fn pixel_to_point(bounds: (usize, usize),
 fn test_pixel_to_point() {
     assert_eq!(pixel_to_point((100, 200), (25, 175),
                               &Complex::with_val(PREC, (-1.0, 1.0)),
-                              &Complex::with_val(PREC, (  1.0, -1.0 )) ),
-               Complex::with_val(PREC, (-0.5, -0.75 )) );
+                              &Complex::with_val(PREC, (1.0, -1.0))),
+               Complex::with_val(PREC, (-0.5, -0.75)));
 }
 
 /// Render a rectangle of the Mandelbrot set into a buffer of pixels.
@@ -156,7 +153,7 @@ use std::fs::File;
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
 fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
-    -> Result<(), std::io::Error>
+               -> Result<(), std::io::Error>
 {
     let output = File::create(filename)?;
 
@@ -169,7 +166,6 @@ fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
 }
 
 use std::env;
-use std::io::Error;
 use std::num::ParseIntError;
 use rug::float::ParseFloatError;
 use rug::ops::CompleteRound;
@@ -227,14 +223,14 @@ impl Parseable for Float {
 
         match incomplete {
             Ok(incomplete) => { Ok(incomplete.complete(PREC)) }
-            Err(err) => { Err(MyError::from(err) ) }
+            Err(err) => { Err(MyError::from(err)) }
         }
     }
 }
 
 impl Parseable for usize {
     fn from_str(s: &str) -> Result<Self, MyError> where Self: Sized {
-       <usize as FromStr>::from_str(s).map_err(|err| MyError::from(err))
+        <usize as FromStr>::from_str(s).map_err(|err| MyError::from(err))
     }
 }
 
