@@ -1,6 +1,15 @@
-use thiserror::Error as ThisError;
-use rug::{Complex, Float};
+//mod rectangle;
+
+use std::env;
+use std::num::ParseIntError;
+use std::str::FromStr;
+use image::{ImageBuffer, Luma};
+
 use rayon::prelude::*;
+use rug::{Complex, Float};
+use rug::float::ParseFloatError;
+use rug::ops::CompleteRound;
+use thiserror::Error as ThisError;
 
 const PREC: u32 = 40;
 
@@ -35,8 +44,6 @@ fn escape_time(c: &Complex, limit: usize) -> Option<usize> {
     None
 }
 
-
-use std::str::FromStr;
 
 /// Parse the string `s` as a coordinate pair, like `"400x600"` or `"1.0,0.5"`.
 ///
@@ -146,29 +153,28 @@ fn render(pixels: &mut [u8],
     }
 }
 
-use image::ColorType;
-use image::png::PNGEncoder;
-use std::fs::File;
 
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
 fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
                -> Result<(), std::io::Error>
 {
-    let output = File::create(filename)?;
+    let width = bounds.0 as u32;
+    let height = bounds.1 as u32;
 
-    let encoder = PNGEncoder::new(output);
-    encoder.encode(&pixels,
-                   bounds.0 as u32, bounds.1 as u32,
-                   ColorType::Gray(8))?;
+    let mut image_buffer = ImageBuffer::new(width, height);
+
+    for (x, y, pixel) in image_buffer.enumerate_pixels_mut() {
+
+        *pixel = Luma( [pixels[ (x + y  * width) as usize] ])
+    }
+
+    image_buffer.save(filename).expect("Image error");
 
     Ok(())
 }
 
-use std::env;
-use std::num::ParseIntError;
-use rug::float::ParseFloatError;
-use rug::ops::CompleteRound;
+
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -234,9 +240,27 @@ impl Parseable for usize {
     }
 }
 
+impl Parseable for i32 {
+    fn from_str(s: &str) -> Result<Self, MyError> where Self: Sized {
+        <i32 as FromStr>::from_str(s).map_err(|err| MyError::from(err))
+    }
+}
+
+impl Parseable for f64 {
+    fn from_str(s: &str) -> Result<Self, MyError> where Self: Sized {
+        <f64 as FromStr>::from_str(s).map_err(|err| MyError::from(err))
+    }
+}
+
 impl From<rug::float::ParseFloatError> for MyError {
     fn from(rug_err: ParseFloatError) -> Self {
         Self::ParseError(rug_err.to_string())
+    }
+}
+
+impl From<std::num::ParseFloatError> for MyError {
+    fn from(num_err: std::num::ParseFloatError) -> Self {
+        Self::ParseError(num_err.to_string())
     }
 }
 
