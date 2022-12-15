@@ -75,28 +75,36 @@ fn parse_complex(s: &str) -> Option<Complex> {
     }
 }
 
+/// Represents a subset of the image to be worked on.
+/// The primary coordinate system is pixels, with the complex numbers being derived
+/// from pixels coordinates.
+/// See: [pixel_to_point]
+struct Partition<'p> {
+    /// Width in pixels
+    width: usize,
+
+    // Height in pixels
+    height: usize,
+
+    // Complex number at the upper left of this partition.
+    cplx_upper_left: &'p Complex,
+
+    // Complex number at the lower_right of this partition.
+    cplx_lower_right: &'p Complex,
+}
 
 /// Given the row and column of a pixel in the output image, return the
 /// corresponding point on the complex plane.
-///
-/// `bounds` is a pair giving the width and height of the image in pixels.
-/// `pixel` is a (column, row) pair indicating a particular pixel in that image.
-/// The `upper_left` and `lower_right` parameters are points on the complex
-/// plane designating the area our image covers.
-fn pixel_to_point(bounds: (usize, usize),
-                  pixel: (usize, usize),
-                  upper_left: &Complex,
-                  lower_right: &Complex)
-                  -> Complex
+fn pixel_to_point(pixel: (usize, usize), p: &Partition) -> Complex
 {
-    let (width, height) =
-        ((lower_right.real() - upper_left.real()).complete(PREC),
-         (upper_left.imag() - lower_right.imag()).complete(PREC));
+    let (set_width, set_height) =
+        ((p.cplx_lower_right.real() - p.cplx_upper_left.real()).complete(PREC),
+         (p.cplx_upper_left.imag() - p.cplx_lower_right.imag()).complete(PREC));
 
     Complex::with_val(PREC,
                       (
-                          upper_left.real() + Float::with_val(PREC, pixel.0 as f64) * width / bounds.0 as f64,
-                          upper_left.imag() - Float::with_val(PREC,pixel.1 as f64) * height / bounds.1 as f64
+                          p.cplx_upper_left.real() + Float::with_val(PREC, pixel.0 as f64) * set_width / p.width as f64,
+                          p.cplx_upper_left.imag() - Float::with_val(PREC,pixel.1 as f64) * set_height / p.height as f64
                       ),
                       // Why subtraction here? pixel.1 increases as we go down,
                       // but the imaginary component increases as we go up.
@@ -109,18 +117,14 @@ fn pixel_to_point(bounds: (usize, usize),
 /// which holds one grayscale pixel per byte. The `upper_left` and `lower_right`
 /// arguments specify points on the complex plane corresponding to the upper-
 /// left and lower-right corners of the pixel buffer.
-fn render(pixels: &mut [u8],
-          bounds: (usize, usize),
-          upper_left: &Complex,
-          lower_right: &Complex)
+fn render(pixels: &mut [u8],  p: &Partition)
 {
-    assert!(pixels.len() == bounds.0 * bounds.1);
+    assert!(pixels.len() == p.width * p.height);
 
-    for row in 0..bounds.1 {
-        for column in 0..bounds.0 {
-            let point = pixel_to_point(bounds, (column, row),
-                                       upper_left, lower_right);
-            pixels[row * bounds.0 + column] =
+    for row in 0..p.height {
+        for column in 0..p.width {
+            let point = pixel_to_point( (column, row),p);
+            pixels[row * p.width + column] =
                 match escape_time(&point, 255) {
                     None => 0,
                     Some(count) => 255 - count as u8
@@ -165,10 +169,17 @@ fn main() {
 
     let bounds = parse_pair(&args[2], 'x')
         .expect("error parsing image dimensions");
-    let upper_left = parse_complex(&args[3])
+    let cplx_upper_left = &parse_complex(&args[3])
         .expect("error parsing upper left corner point");
-    let lower_right = parse_complex(&args[4])
+    let cplx_lower_right = &parse_complex(&args[4])
         .expect("error parsing lower right corner point");
+
+    let partition = Partition {
+        width: bounds.0,
+        height: bounds.1,
+        cplx_upper_left,
+        cplx_lower_right,
+    };
 
     let mut pixels = vec![0; bounds.0 * bounds.1];
 
@@ -182,12 +193,15 @@ fn main() {
         bands.into_par_iter()
             .for_each(|(i, band)| {
                 let top = i;
-                let band_bounds = (bounds.0, 1);
-                let band_upper_left = pixel_to_point(bounds, (0, top),
-                                                     &upper_left, &lower_right);
-                let band_lower_right = pixel_to_point(bounds, (bounds.0, top + 1),
-                                                      &upper_left, &lower_right);
-                render(band, band_bounds, &band_upper_left, &band_lower_right);
+
+                let band_partition = Partition {
+                    width: partition.width,
+                    height: 1,
+                    cplx_upper_left: &pixel_to_point((0, top), &partition),
+                    cplx_lower_right: &pixel_to_point((partition.width, top + 1), &partition),
+                };
+                
+                render(band, &band_partition);
             });
     }
 
@@ -254,10 +268,18 @@ pub(crate) mod tests {
 
     #[test]
     fn test_pixel_to_point() {
-        assert_eq!(pixel_to_point((100, 200), (25, 175),
-                                  &Complex::with_val(PREC, (-1.0, 1.0)),
-                                  &Complex::with_val(PREC, (1.0, -1.0))),
-                   Complex::with_val(PREC, (-0.5, -0.75)));
+        assert_eq!(
+            pixel_to_point(
+                (25, 175),
+                &Partition {
+                    width: 100,
+                    height: 200,
+                    cplx_upper_left: &Complex::with_val(PREC, (-1.0, 1.0)),
+                    cplx_lower_right: &Complex::with_val(PREC, (1.0, -1.0))
+                }
+            ),
+            Complex::with_val(PREC, (-0.5, -0.75))
+        )
     }
 
     #[test]
@@ -277,6 +299,4 @@ pub(crate) mod tests {
         assert_eq!(parse_pair::<f64>("0.5x", 'x'), None);
         assert_eq!(parse_pair::<f64>("0.5x1.5", 'x'), Some((0.5, 1.5)));
     }
-
-
 }
