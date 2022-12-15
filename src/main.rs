@@ -65,16 +65,6 @@ fn parse_pair<T: Parseable>(s: &str, separator: char) -> Option<(T, T)> {
     }
 }
 
-#[test]
-fn test_parse_pair() {
-    assert_eq!(parse_pair::<i32>("", ','), None);
-    assert_eq!(parse_pair::<i32>("10,", ','), None);
-    assert_eq!(parse_pair::<i32>(",10", ','), None);
-    assert_eq!(parse_pair::<i32>("10,20", ','), Some((10, 20)));
-    assert_eq!(parse_pair::<i32>("10,20xy", ','), None);
-    assert_eq!(parse_pair::<f64>("0.5x", 'x'), None);
-    assert_eq!(parse_pair::<f64>("0.5x1.5", 'x'), Some((0.5, 1.5)));
-}
 
 /// Parse a pair of floating-point numbers separated by a comma as a complex
 /// number.
@@ -85,12 +75,6 @@ fn parse_complex(s: &str) -> Option<Complex> {
     }
 }
 
-#[test]
-fn test_parse_complex() {
-    assert_eq!(parse_complex("1.25,-0.0625"),
-               Some(Complex::with_val(PREC, (1.25, -0.0625))));
-    assert_eq!(parse_complex(",-0.0625"), None);
-}
 
 /// Given the row and column of a pixel in the output image, return the
 /// corresponding point on the complex plane.
@@ -117,14 +101,6 @@ fn pixel_to_point(bounds: (usize, usize),
                       // Why subtraction here? pixel.1 increases as we go down,
                       // but the imaginary component increases as we go up.
     )
-}
-
-#[test]
-fn test_pixel_to_point() {
-    assert_eq!(pixel_to_point((100, 200), (25, 175),
-                              &Complex::with_val(PREC, (-1.0, 1.0)),
-                              &Complex::with_val(PREC, (1.0, -1.0))),
-               Complex::with_val(PREC, (-0.5, -0.75)));
 }
 
 /// Render a rectangle of the Mandelbrot set into a buffer of pixels.
@@ -268,4 +244,39 @@ impl From<ParseIntError> for MyError {
     fn from(num_err: ParseIntError) -> Self {
         Self::ParseError(num_err.to_string())
     }
+}
+
+// Unit tests
+#[cfg(test)]
+pub(crate) mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_pixel_to_point() {
+        assert_eq!(pixel_to_point((100, 200), (25, 175),
+                                  &Complex::with_val(PREC, (-1.0, 1.0)),
+                                  &Complex::with_val(PREC, (1.0, -1.0))),
+                   Complex::with_val(PREC, (-0.5, -0.75)));
+    }
+
+    #[test]
+    fn test_parse_complex() {
+        assert_eq!(parse_complex("1.25,-0.0625"),
+                   Some(Complex::with_val(PREC, (1.25, -0.0625))));
+        assert_eq!(parse_complex(",-0.0625"), None);
+    }
+
+    #[test]
+    fn test_parse_pair() {
+        assert_eq!(parse_pair::<i32>("", ','), None);
+        assert_eq!(parse_pair::<i32>("10,", ','), None);
+        assert_eq!(parse_pair::<i32>(",10", ','), None);
+        assert_eq!(parse_pair::<i32>("10,20", ','), Some((10, 20)));
+        assert_eq!(parse_pair::<i32>("10,20xy", ','), None);
+        assert_eq!(parse_pair::<f64>("0.5x", 'x'), None);
+        assert_eq!(parse_pair::<f64>("0.5x1.5", 'x'), Some((0.5, 1.5)));
+    }
+
+
 }
