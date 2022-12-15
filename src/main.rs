@@ -1,11 +1,12 @@
 //mod rectangle;
 
+extern crate core;
+
 use std::env;
 use std::num::ParseIntError;
 use std::str::FromStr;
 use image::{ImageBuffer, Luma};
 
-use rayon::prelude::*;
 use rug::{Complex, Float};
 use rug::float::ParseFloatError;
 use rug::ops::CompleteRound;
@@ -69,17 +70,15 @@ fn parse_pair<T: Parseable>(s: &str, separator: char) -> Option<(T, T)> {
 /// Parse a pair of floating-point numbers separated by a comma as a complex
 /// number.
 fn parse_complex(s: &str) -> Option<Complex> {
-    match parse_pair::<Float>(s, ',') {
-        Some((re, im)) => Some(Complex::with_val(PREC, (re, im))),
-        None => None
-    }
+    parse_pair::<Float>(s, ',')
+        .map(|(re, im)| Complex::with_val(PREC, (re, im)))
 }
 
 /// Represents a subset of the image to be worked on.
 /// The primary coordinate system is pixels, with the complex numbers being derived
 /// from pixels coordinates.
 /// See: [pixel_to_point]
-struct Partition<'p> {
+struct Partition {
     /// Width in pixels
     width: usize,
 
@@ -87,10 +86,10 @@ struct Partition<'p> {
     height: usize,
 
     // Complex number at the upper left of this partition.
-    cplx_upper_left: &'p Complex,
+    cplx_upper_left: Complex,
 
     // Complex number at the lower_right of this partition.
-    cplx_lower_right: &'p Complex,
+    cplx_lower_right: Complex,
 }
 
 /// Given the row and column of a pixel in the output image, return the
@@ -117,13 +116,13 @@ fn pixel_to_point(pixel: (usize, usize), p: &Partition) -> Complex
 /// which holds one grayscale pixel per byte. The `upper_left` and `lower_right`
 /// arguments specify points on the complex plane corresponding to the upper-
 /// left and lower-right corners of the pixel buffer.
-fn render(pixels: &mut [u8],  p: &Partition)
+fn render(pixels: &mut [u8], p: Partition)
 {
     assert!(pixels.len() == p.width * p.height);
 
     for row in 0..p.height {
         for column in 0..p.width {
-            let point = pixel_to_point( (column, row),p);
+            let point = pixel_to_point( (column, row), &p);
             pixels[row * p.width + column] =
                 match escape_time(&point, 255) {
                     None => 0,
@@ -169,9 +168,9 @@ fn main() {
 
     let bounds = parse_pair(&args[2], 'x')
         .expect("error parsing image dimensions");
-    let cplx_upper_left = &parse_complex(&args[3])
+    let cplx_upper_left = parse_complex(&args[3])
         .expect("error parsing upper left corner point");
-    let cplx_lower_right = &parse_complex(&args[4])
+    let cplx_lower_right = parse_complex(&args[4])
         .expect("error parsing lower right corner point");
 
     let partition = Partition {
@@ -183,13 +182,35 @@ fn main() {
 
     let mut pixels = vec![0; bounds.0 * bounds.1];
 
-    // Scope of slicing up `pixels` into horizontal bands.
     {
         let bands: Vec<(usize, &mut [u8])> = pixels
-            .chunks_mut(bounds.0)
+            .chunks_mut(partition.width)
             .enumerate()
             .collect();
 
+        //let mut outputs: Vec<Box<[u8]>> = vec![];
+
+        rayon::scope(|s| {
+            for (i, band) in bands.into_iter()  {
+                let top = i;
+
+                let band_partition = Partition {
+                    width: partition.width,
+                    height: 1,
+                    cplx_upper_left: pixel_to_point((0, top), &partition),
+                    cplx_lower_right: pixel_to_point((partition.width, top + 1), &partition),
+                };
+
+                //outputs.push(Box::from(vec![1,2,3].as_slice()));
+
+                s.spawn(move |_s| {
+                    render(band,band_partition);
+                });
+
+            }
+        });
+
+        /*
         bands.into_par_iter()
             .for_each(|(i, band)| {
                 let top = i;
@@ -200,9 +221,10 @@ fn main() {
                     cplx_upper_left: &pixel_to_point((0, top), &partition),
                     cplx_lower_right: &pixel_to_point((partition.width, top + 1), &partition),
                 };
-                
-                render(band, &band_partition);
+
+                render(band, &mut pixels,&band_partition);
             });
+         */
     }
 
     write_image(&args[1], &pixels, bounds)
@@ -226,19 +248,19 @@ impl Parseable for Float {
 
 impl Parseable for usize {
     fn from_str(s: &str) -> Result<Self, MyError> where Self: Sized {
-        <usize as FromStr>::from_str(s).map_err(|err| MyError::from(err))
+        <usize as FromStr>::from_str(s).map_err(MyError::from)
     }
 }
 
 impl Parseable for i32 {
     fn from_str(s: &str) -> Result<Self, MyError> where Self: Sized {
-        <i32 as FromStr>::from_str(s).map_err(|err| MyError::from(err))
+        <i32 as FromStr>::from_str(s).map_err(MyError::from)
     }
 }
 
 impl Parseable for f64 {
     fn from_str(s: &str) -> Result<Self, MyError> where Self: Sized {
-        <f64 as FromStr>::from_str(s).map_err(|err| MyError::from(err))
+        <f64 as FromStr>::from_str(s).map_err(MyError::from)
     }
 }
 
@@ -274,8 +296,8 @@ pub(crate) mod tests {
                 &Partition {
                     width: 100,
                     height: 200,
-                    cplx_upper_left: &Complex::with_val(PREC, (-1.0, 1.0)),
-                    cplx_lower_right: &Complex::with_val(PREC, (1.0, -1.0))
+                    cplx_upper_left: Complex::with_val(PREC, (-1.0, 1.0)),
+                    cplx_lower_right: Complex::with_val(PREC, (1.0, -1.0))
                 }
             ),
             Complex::with_val(PREC, (-0.5, -0.75))
