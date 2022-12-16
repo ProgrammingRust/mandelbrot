@@ -1,7 +1,9 @@
 //mod rectangle;
+#![feature(sync_unsafe_cell)]
 
 extern crate core;
 
+use std::cell::{SyncUnsafeCell};
 use std::env;
 use std::num::ParseIntError;
 use std::str::FromStr;
@@ -116,8 +118,9 @@ fn pixel_to_point(pixel: (usize, usize), p: &Partition) -> Complex
 /// which holds one grayscale pixel per byte. The `upper_left` and `lower_right`
 /// arguments specify points on the complex plane corresponding to the upper-
 /// left and lower-right corners of the pixel buffer.
-fn render(pixels: &mut [u8], p: Partition)
+unsafe fn render(mut pixels: *mut &mut [u8], p: Partition)
 {
+    let pixels = pixels.as_mut().expect("as_ref failed");
     assert!(pixels.len() == p.width * p.height);
 
     for row in 0..p.height {
@@ -135,9 +138,11 @@ fn render(pixels: &mut [u8], p: Partition)
 
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
-fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize))
+fn write_image(filename: &str, pixels: &mut SyncUnsafeCell<&mut [u8]>, bounds: (usize, usize))
                -> Result<(), std::io::Error>
 {
+    let pixels = pixels.get_mut();
+
     let width = bounds.0 as u32;
     let height = bounds.1 as u32;
 
@@ -180,19 +185,22 @@ fn main() {
         cplx_lower_right,
     };
 
-    let mut pixels = vec![0; bounds.0 * bounds.1];
-
     {
+        let mut vec1 = vec![0u8; bounds.0 * bounds.1];
+        let mut pixels = SyncUnsafeCell::new(vec1.as_mut_slice());
+
+        /*
         let bands: Vec<(usize, &mut [u8])> = pixels
+            .get_mut()
             .chunks_mut(partition.width)
             .enumerate()
             .collect();
-
+        */
         //let mut outputs: Vec<Box<[u8]>> = vec![];
 
-        rayon::scope(|s| {
-            for (i, band) in bands.into_iter()  {
-                let top = i;
+        rayon::scope(|s| unsafe {
+            //for (i, band) in bands.into_iter()  {
+                let top = 0;
 
                 let band_partition = Partition {
                     width: partition.width,
@@ -203,11 +211,11 @@ fn main() {
 
                 //outputs.push(Box::from(vec![1,2,3].as_slice()));
 
-                s.spawn(move |_s| {
-                    render(band,band_partition);
+                s.spawn(|_s| unsafe {
+                    render(pixels.get(), band_partition);
                 });
 
-            }
+            //}
         });
 
         /*
@@ -225,10 +233,11 @@ fn main() {
                 render(band, &mut pixels,&band_partition);
             });
          */
+        write_image(&args[1], &mut pixels, bounds)
+            .expect("error writing PNG file");
     }
 
-    write_image(&args[1], &pixels, bounds)
-        .expect("error writing PNG file");
+
 }
 
 trait Parseable {
