@@ -7,6 +7,7 @@ use std::cell::{SyncUnsafeCell};
 use std::env;
 use std::num::ParseIntError;
 use image::{ImageBuffer, Luma};
+use rayon::Scope;
 
 use rug::{Complex, Float};
 use rug::float::ParseFloatError;
@@ -171,15 +172,14 @@ fn main() {
     rayon::scope(|s|  {
         //outputs.push(Box::from(vec![1,2,3].as_slice()));
 
-        s.spawn(|_s| unsafe {
+        s.spawn(|s| unsafe {
             //render(pixels.get(), image_info);
-            process_partition(&image_info, partition, pixels.get(), 0);
+            process_partition(s, &image_info, partition, pixels, 0);
         });
     });
 
     write_image(&args[1], &mut pixels, bounds)
         .expect("error writing PNG file");
-
 }
 
 impl From<rug::float::ParseFloatError> for MyError {

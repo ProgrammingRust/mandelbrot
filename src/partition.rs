@@ -8,6 +8,8 @@ Human: Please convert this Go code to Rust:
 ...
 AI: Here is the equivalent code in Rust:
 */
+use std::cell::SyncUnsafeCell;
+use rayon::Scope;
 use crate::{escape_time, ImageInfo, pixel_to_point};
 
 /// Represents a subset of the image to be worked on.
@@ -43,7 +45,7 @@ impl Partition {
 
 const ESCAPE_TIME: usize = 255;
 
-pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pixels: *mut &mut [u8], nesting_level: i32) {
+pub(crate) unsafe fn process_partition(scope: &Scope, image_info: &ImageInfo, p: Partition, pixels: SyncUnsafeCell<&mut [u8]>, nesting_level: i32) {
     let mut pixels_processed: u64 = 0;
 
     let mut perimeter_in_set = true;
@@ -61,7 +63,7 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pix
     // Check the top and bottom of the rectangle
     for y in y_values {
         for x in min_x..=max_x {
-            let escape_time = process_point(x, y, pixels, image_info);
+            let escape_time = process_point(x, y, pixels.get(), image_info);
 
             if escape_time.is_some() {
                 perimeter_in_set = false;
@@ -72,7 +74,7 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pix
     // Check the left and right sides of the rectangle
     for x in x_values {
         for y in min_y..=max_y {
-            let escape_time = process_point(x, y, pixels, image_info);
+            let escape_time = process_point(x, y, pixels.get(), image_info);
 
             if escape_time.is_some() {
                 perimeter_in_set = false;
@@ -87,7 +89,7 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pix
         println!("{:03?}: Perimeter in set: {:?}\n", nesting_level, p);
         for x in min_x + 1..max_x {
             for y in min_y + 1..max_y {
-                set_pixel(None, x, y, pixels, image_info);
+                set_pixel(None, x, y, pixels.get(), image_info);
                 pixels_processed += 1;
             }
         }
@@ -96,7 +98,7 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pix
         for x in min_x..=max_x {
             for y in min_y..=max_y {
                 println!("{:03?}: Base case: width: {} height: {}\n", nesting_level, p.width, p.height);
-                process_point(x, y, pixels, image_info);
+                process_point(x, y, pixels.get(), image_info);
             }
         }
     // Split the current rectangle up into four rectangles and recurse.
@@ -141,10 +143,13 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pix
         let lower_right = Partition::from_points(x_midpoint_plus_one, y_midpoint_plus_one, max_x, max_y);
         println!("{:03?}: Lower Right: {:03?}\n", nesting_level, lower_right);
 
-        process_partition(image_info, upper_left, pixels, nesting_level + 1);
-        process_partition(image_info, upper_right, pixels, nesting_level + 1);
-        process_partition(image_info, lower_left, pixels, nesting_level + 1);
-        process_partition(image_info, lower_right, pixels, nesting_level + 1);
+        scope.spawn(|s| unsafe {
+            process_partition(scope, image_info, upper_left, pixels, nesting_level + 1);
+        });
+
+        process_partition(scope, image_info, upper_right, pixels, nesting_level + 1);
+        process_partition(scope, image_info, lower_left, pixels, nesting_level + 1);
+        process_partition(scope, image_info, lower_right, pixels, nesting_level + 1);
     }
 }
 
