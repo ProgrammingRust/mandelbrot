@@ -1,18 +1,19 @@
-//mod rectangle;
 #![feature(sync_unsafe_cell)]
 
-extern crate core;
+mod parsing;
+mod partition;
 
 use std::cell::{SyncUnsafeCell};
 use std::env;
 use std::num::ParseIntError;
-use std::str::FromStr;
 use image::{ImageBuffer, Luma};
 
 use rug::{Complex, Float};
 use rug::float::ParseFloatError;
 use rug::ops::CompleteRound;
 use thiserror::Error as ThisError;
+use crate::parsing::{parse_complex, parse_pair};
+use crate::partition::{Partition, process_partition};
 
 const PREC: u32 = 40;
 
@@ -22,6 +23,24 @@ pub enum MyError {
     /// Errors encountered while parsing numbers.
     #[error("Parse error: {0}")]
     ParseError(String),
+}
+
+/// Represents the image to be worked on.
+/// The primary coordinate system is pixels, with the complex numbers being derived
+/// from pixels coordinates.
+/// See: [pixel_to_point]
+struct ImageInfo {
+    /// Width in pixels
+    width: usize,
+
+    // Height in pixels
+    height: usize,
+
+    // Complex number at the upper left of this partition.
+    cplx_upper_left: Complex,
+
+    // Complex number at the lower_right of this partition.
+    cplx_lower_right: Complex,
 }
 
 /// Try to determine if `c` is in the Mandelbrot set, using at most `limit`
@@ -47,65 +66,18 @@ fn escape_time(c: &Complex, limit: usize) -> Option<usize> {
     None
 }
 
-
-/// Parse the string `s` as a coordinate pair, like `"400x600"` or `"1.0,0.5"`.
-///
-/// Specifically, `s` should have the form <left><sep><right>, where <sep> is
-/// the character given by the `separator` argument, and <left> and <right> are both
-/// strings that can be parsed by `T::from_str`.
-///
-/// If `s` has the proper form, return `Some<(x, y)>`. If it doesn't parse
-/// correctly, return `None`.
-fn parse_pair<T: Parseable>(s: &str, separator: char) -> Option<(T, T)> {
-    match s.find(separator) {
-        None => None,
-        Some(index) => {
-            match (T::from_str(&s[..index]), T::from_str(&s[index + 1..])) {
-                (Ok(l), Ok(r)) => Some((l, r)),
-                _ => None
-            }
-        }
-    }
-}
-
-
-/// Parse a pair of floating-point numbers separated by a comma as a complex
-/// number.
-fn parse_complex(s: &str) -> Option<Complex> {
-    parse_pair::<Float>(s, ',')
-        .map(|(re, im)| Complex::with_val(PREC, (re, im)))
-}
-
-/// Represents a subset of the image to be worked on.
-/// The primary coordinate system is pixels, with the complex numbers being derived
-/// from pixels coordinates.
-/// See: [pixel_to_point]
-struct Partition {
-    /// Width in pixels
-    width: usize,
-
-    // Height in pixels
-    height: usize,
-
-    // Complex number at the upper left of this partition.
-    cplx_upper_left: Complex,
-
-    // Complex number at the lower_right of this partition.
-    cplx_lower_right: Complex,
-}
-
 /// Given the row and column of a pixel in the output image, return the
 /// corresponding point on the complex plane.
-fn pixel_to_point(pixel: (usize, usize), p: &Partition) -> Complex
+fn pixel_to_point(pixel: (usize, usize), img_info: &ImageInfo) -> Complex
 {
     let (set_width, set_height) =
-        ((p.cplx_lower_right.real() - p.cplx_upper_left.real()).complete(PREC),
-         (p.cplx_upper_left.imag() - p.cplx_lower_right.imag()).complete(PREC));
+        ((img_info.cplx_lower_right.real() - img_info.cplx_upper_left.real()).complete(PREC),
+         (img_info.cplx_upper_left.imag() - img_info.cplx_lower_right.imag()).complete(PREC));
 
     Complex::with_val(PREC,
                       (
-                          p.cplx_upper_left.real() + Float::with_val(PREC, pixel.0 as f64) * set_width / p.width as f64,
-                          p.cplx_upper_left.imag() - Float::with_val(PREC,pixel.1 as f64) * set_height / p.height as f64
+                          img_info.cplx_upper_left.real() + Float::with_val(PREC, (pixel.0) as f64) * set_width / img_info.width as f64,
+                          img_info.cplx_upper_left.imag() - Float::with_val(PREC, (pixel.1) as f64) * set_height / img_info.height as f64
                       ),
                       // Why subtraction here? pixel.1 increases as we go down,
                       // but the imaginary component increases as we go up.
@@ -118,15 +90,15 @@ fn pixel_to_point(pixel: (usize, usize), p: &Partition) -> Complex
 /// which holds one grayscale pixel per byte. The `upper_left` and `lower_right`
 /// arguments specify points on the complex plane corresponding to the upper-
 /// left and lower-right corners of the pixel buffer.
-unsafe fn render(mut pixels: *mut &mut [u8], p: Partition)
+unsafe fn render(pixels: *mut &mut [u8], image_info: ImageInfo)
 {
     let pixels = pixels.as_mut().expect("as_ref failed");
-    assert!(pixels.len() == p.width * p.height);
+    assert!(pixels.len() == image_info.width * image_info.height);
 
-    for row in 0..p.height {
-        for column in 0..p.width {
-            let point = pixel_to_point( (column, row), &p);
-            pixels[row * p.width + column] =
+    for row in 0..image_info.height {
+        for column in 0..image_info.width {
+            let point = pixel_to_point( (column, row), &image_info);
+            pixels[row * image_info.width + column] =
                 match escape_time(&point, 255) {
                     None => 0,
                     Some(count) => 255 - count as u8
@@ -178,99 +150,36 @@ fn main() {
     let cplx_lower_right = parse_complex(&args[4])
         .expect("error parsing lower right corner point");
 
-    let partition = Partition {
+    let image_info = ImageInfo {
         width: bounds.0,
         height: bounds.1,
         cplx_upper_left,
         cplx_lower_right,
     };
 
-    {
-        let mut vec1 = vec![0u8; bounds.0 * bounds.1];
-        let mut pixels = SyncUnsafeCell::new(vec1.as_mut_slice());
+    let partition = Partition {
+        x_offset: 0,
+        y_offset: 0,
+        width: image_info.width,
+        height: image_info.height,
+    };
 
-        /*
-        let bands: Vec<(usize, &mut [u8])> = pixels
-            .get_mut()
-            .chunks_mut(partition.width)
-            .enumerate()
-            .collect();
-        */
-        //let mut outputs: Vec<Box<[u8]>> = vec![];
 
-        rayon::scope(|s| unsafe {
-            //for (i, band) in bands.into_iter()  {
-                let top = 0;
+    let mut pixels_vec = vec![0u8; bounds.0 * bounds.1];
+    let mut pixels = SyncUnsafeCell::new(pixels_vec.as_mut_slice());
 
-                let band_partition = Partition {
-                    width: partition.width,
-                    height: 1,
-                    cplx_upper_left: pixel_to_point((0, top), &partition),
-                    cplx_lower_right: pixel_to_point((partition.width, top + 1), &partition),
-                };
+    rayon::scope(|s|  {
+        //outputs.push(Box::from(vec![1,2,3].as_slice()));
 
-                //outputs.push(Box::from(vec![1,2,3].as_slice()));
-
-                s.spawn(|_s| unsafe {
-                    render(pixels.get(), band_partition);
-                });
-
-            //}
+        s.spawn(|_s| unsafe {
+            //render(pixels.get(), image_info);
+            process_partition(&image_info, partition, pixels.get(), 0);
         });
+    });
 
-        /*
-        bands.into_par_iter()
-            .for_each(|(i, band)| {
-                let top = i;
+    write_image(&args[1], &mut pixels, bounds)
+        .expect("error writing PNG file");
 
-                let band_partition = Partition {
-                    width: partition.width,
-                    height: 1,
-                    cplx_upper_left: &pixel_to_point((0, top), &partition),
-                    cplx_lower_right: &pixel_to_point((partition.width, top + 1), &partition),
-                };
-
-                render(band, &mut pixels,&band_partition);
-            });
-         */
-        write_image(&args[1], &mut pixels, bounds)
-            .expect("error writing PNG file");
-    }
-
-
-}
-
-trait Parseable {
-    fn from_str(s: &str) -> Result<Self, MyError> where Self: Sized;
-}
-
-impl Parseable for Float {
-    fn from_str(s: &str) -> Result<Self, MyError> where Self: Sized {
-        let incomplete = Float::parse(s);
-
-        match incomplete {
-            Ok(incomplete) => { Ok(incomplete.complete(PREC)) }
-            Err(err) => { Err(MyError::from(err)) }
-        }
-    }
-}
-
-impl Parseable for usize {
-    fn from_str(s: &str) -> Result<Self, MyError> where Self: Sized {
-        <usize as FromStr>::from_str(s).map_err(MyError::from)
-    }
-}
-
-impl Parseable for i32 {
-    fn from_str(s: &str) -> Result<Self, MyError> where Self: Sized {
-        <i32 as FromStr>::from_str(s).map_err(MyError::from)
-    }
-}
-
-impl Parseable for f64 {
-    fn from_str(s: &str) -> Result<Self, MyError> where Self: Sized {
-        <f64 as FromStr>::from_str(s).map_err(MyError::from)
-    }
 }
 
 impl From<rug::float::ParseFloatError> for MyError {
@@ -302,7 +211,7 @@ pub(crate) mod tests {
         assert_eq!(
             pixel_to_point(
                 (25, 175),
-                &Partition {
+                &ImageInfo {
                     width: 100,
                     height: 200,
                     cplx_upper_left: Complex::with_val(PREC, (-1.0, 1.0)),
