@@ -44,6 +44,7 @@ impl Partition {
 const ESCAPE_TIME: usize = 255;
 
 pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pixels: *mut &mut [u8], nesting_level: i32) {
+    #[allow(unused_variables)]
     let mut pixels_processed: u64 = 0;
 
     let mut perimeter_in_set = true;

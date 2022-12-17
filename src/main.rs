@@ -84,30 +84,6 @@ fn pixel_to_point(pixel: (usize, usize), img_info: &ImageInfo) -> Complex
     )
 }
 
-/// Render a rectangle of the Mandelbrot set into a buffer of pixels.
-///
-/// The `bounds` argument gives the width and height of the buffer `pixels`,
-/// which holds one grayscale pixel per byte. The `upper_left` and `lower_right`
-/// arguments specify points on the complex plane corresponding to the upper-
-/// left and lower-right corners of the pixel buffer.
-unsafe fn render(pixels: *mut &mut [u8], image_info: ImageInfo)
-{
-    let pixels = pixels.as_mut().expect("as_ref failed");
-    assert!(pixels.len() == image_info.width * image_info.height);
-
-    for row in 0..image_info.height {
-        for column in 0..image_info.width {
-            let point = pixel_to_point( (column, row), &image_info);
-            pixels[row * image_info.width + column] =
-                match escape_time(&point, 255) {
-                    None => 0,
-                    Some(count) => 255 - count as u8
-                };
-        }
-    }
-}
-
-
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
 fn write_image(filename: &str, pixels: &mut SyncUnsafeCell<&mut [u8]>, bounds: (usize, usize))
