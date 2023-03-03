@@ -4,6 +4,7 @@ mod parsing;
 mod partition;
 
 use std::cell::{SyncUnsafeCell};
+use std::collections::VecDeque;
 use std::env;
 use std::num::ParseIntError;
 use image::{ImageBuffer, Luma};
@@ -111,10 +112,10 @@ unsafe fn render(pixels: *mut &mut [u8], image_info: ImageInfo)
 
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
-fn write_image(filename: &str, pixels: &mut SyncUnsafeCell<&mut [u8]>, bounds: (usize, usize))
+fn write_image(filename: &str, pixels: &mut [u8], bounds: (usize, usize))
                -> Result<(), std::io::Error>
 {
-    let pixels = pixels.get_mut();
+    let pixels = pixels;
 
     let width = bounds.0 as u32;
     let height = bounds.1 as u32;
@@ -158,7 +159,7 @@ fn main() {
         cplx_lower_right,
     };
 
-    let partition = Partition {
+    let rootPartition = Partition {
         x_offset: 0,
         y_offset: 0,
         width: image_info.width,
@@ -166,9 +167,27 @@ fn main() {
     };
 
 
-    let mut pixels_vec = vec![0u8; bounds.0 * bounds.1];
-    let mut pixels = SyncUnsafeCell::new(pixels_vec.as_mut_slice());
+    let mut pixels = vec![0u8; bounds.0 * bounds.1];
 
+
+    let mut partitions: VecDeque<Partition> = VecDeque::new();
+
+    partitions.push_front(rootPartition);
+
+    unsafe {
+        while let Some(p) = partitions.pop_back()
+        {
+            let newPartitions = process_partition(&image_info, p, pixels.as_mut_slice());
+
+            if let Some(newPartitions) = newPartitions {
+                for new_p in newPartitions.into_iter() {
+                    partitions.push_front(new_p);
+                }
+            }
+        }
+    }
+
+    /*
     rayon::scope(|s|  {
         //outputs.push(Box::from(vec![1,2,3].as_slice()));
 
@@ -177,7 +196,7 @@ fn main() {
             process_partition(s, &image_info, partition, pixels, 0);
         });
     });
-
+*/
     write_image(&args[1], &mut pixels, bounds)
         .expect("error writing PNG file");
 }
