@@ -3,12 +3,11 @@
 mod parsing;
 mod partition;
 
-use std::cell::{SyncUnsafeCell};
+use std::cell::SyncUnsafeCell;
 use std::collections::VecDeque;
 use std::env;
 use std::num::ParseIntError;
 use image::{ImageBuffer, Luma};
-use rayon::Scope;
 
 use rug::{Complex, Float};
 use rug::float::ParseFloatError;
@@ -159,7 +158,7 @@ fn main() {
         cplx_lower_right,
     };
 
-    let rootPartition = Partition {
+    let root_partition = Partition {
         x_offset: 0,
         y_offset: 0,
         width: image_info.width,
@@ -167,26 +166,22 @@ fn main() {
     };
 
 
-    let mut pixels = vec![0u8; bounds.0 * bounds.1];
+    let mut pixels_vec = vec![0u8; bounds.0 * bounds.1];
+    let mut pixels = SyncUnsafeCell::new(pixels_vec.as_mut_slice());
 
+    let mut queue: VecDeque<Partition> = VecDeque::new();
+    queue.push_front(root_partition);
 
-    let mut partitions: VecDeque<Partition> = VecDeque::new();
-
-    partitions.push_front(rootPartition);
-
-    unsafe {
-        while let Some(p) = partitions.pop_back()
+    rayon::scope(|s|  {
+        while let Some(p) = queue.pop_back()
         {
-            let newPartitions = process_partition(&image_info, p, pixels.as_mut_slice());
+            //process_partition(&image_info, p, pixels.as_mut_slice(), &mut queue);
 
-            if let Some(newPartitions) = newPartitions {
-                for new_p in newPartitions.into_iter() {
-                    partitions.push_front(new_p);
-                }
-            }
+            s.spawn(|_|   {
+                process_partition(&image_info, p, pixels);
+            });
         }
-    }
-
+    });
     /*
     rayon::scope(|s|  {
         //outputs.push(Box::from(vec![1,2,3].as_slice()));
@@ -197,7 +192,7 @@ fn main() {
         });
     });
 */
-    write_image(&args[1], &mut pixels, bounds)
+    write_image(&args[1], pixels.get_mut(), bounds)
         .expect("error writing PNG file");
 }
 

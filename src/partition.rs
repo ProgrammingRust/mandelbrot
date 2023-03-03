@@ -9,7 +9,7 @@ Human: Please convert this Go code to Rust:
 AI: Here is the equivalent code in Rust:
 */
 use std::cell::SyncUnsafeCell;
-use rayon::Scope;
+use std::collections::VecDeque;
 use crate::{escape_time, ImageInfo, pixel_to_point};
 
 /// Represents a subset of the image to be worked on.
@@ -45,7 +45,9 @@ impl Partition {
 
 const ESCAPE_TIME: usize = 255;
 
-pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pixels: &mut [u8]) -> Option<Vec<Partition>> {
+pub(crate)  fn process_partition(image_info: &ImageInfo, p: Partition, pixels: SyncUnsafeCell<&mut [u8]>) -> Vec<Partition>  {
+    let mut result:Vec<Partition> = vec![];
+    
     let mut pixels_processed: u64 = 0;
 
     let mut perimeter_in_set = true;
@@ -63,7 +65,7 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pix
     // Check the top and bottom of the rectangle
     for y in y_values {
         for x in min_x..=max_x {
-            let escape_time = process_point(x, y, pixels, image_info);
+            let escape_time = process_point(x, y, pixels.get(), image_info);
 
             if escape_time.is_some() {
                 perimeter_in_set = false;
@@ -74,7 +76,7 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pix
     // Check the left and right sides of the rectangle
     for x in x_values {
         for y in min_y..=max_y {
-            let escape_time = process_point(x, y, pixels, image_info);
+            let escape_time = process_point(x, y, pixels.get(), image_info);
 
             if escape_time.is_some() {
                 perimeter_in_set = false;
@@ -86,24 +88,22 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pix
        Then this means that the inside of the rectangle must also be in the set. When this happens, we
        fill in the entire inside of the rectangle with the 'set' color (black) and exit without doing any further work */
     if perimeter_in_set {
-        println!("Perimeter in set: {:?}\n", p);
+        //println!("Perimeter in set: {:?}\n", p);
         for x in min_x + 1..max_x {
             for y in min_y + 1..max_y {
-                set_pixel(None, x, y, pixels, image_info);
+                set_pixel(None, x, y, pixels.get(), image_info);
                 pixels_processed += 1;
             }
         }
-        return None;
         //If we encounter these little rectangles, we just compute their points individually.
     } else if p.width <= 2 || p.height <= 2 {
         for x in min_x..=max_x {
             for y in min_y..=max_y {
-                println!("Base case: width: {} height: {}\n", p.width, p.height);
-                process_point(x, y, pixels, image_info);
+                //println!("Base case: width: {} height: {}\n", p.width, p.height);
+                process_point(x, y, pixels.get(), image_info);
             }
         }
-        return None;
-    // Split the current rectangle up into four rectangles and recurse.
+    // Split the current rectangle up into four rectangles and add them to the queue.
     } else {
         let mut x_midpoint;
         let mut y_midpoint;
@@ -134,22 +134,27 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pix
         }
 
         let upper_left = Partition::from_points(min_x, min_y, x_midpoint, y_midpoint);
-        println!("Upper Left: {:03?}", upper_left);
+        //println!("Upper Left: {:03?}", upper_left);
 
         let upper_right = Partition::from_points(x_midpoint_plus_one, min_y, max_x, y_midpoint);
-        println!("Upper Right: {:03?}", upper_right);
+        //println!("Upper Right: {:03?}", upper_right);
 
         let lower_left = Partition::from_points(min_x, y_midpoint_plus_one, x_midpoint, max_y);
-        println!("Lower Left: {:03?}", lower_left);
+        //println!("Lower Left: {:03?}", lower_left);
 
         let lower_right = Partition::from_points(x_midpoint_plus_one, y_midpoint_plus_one, max_x, max_y);
-        println!("Lower Right: {:03?}\n", lower_right);
+        //println!("Lower Right: {:03?}\n", lower_right);
 
-        return Some(vec![upper_left, upper_right, lower_left, lower_right])
+        result.push(upper_left);
+        result.push(upper_right);
+        result.push(lower_left);
+        result.push(lower_right);
     }
+    
+    return result;
 }
 
-unsafe fn process_point(x: usize, y: usize, pixels: &mut [u8], image_info: &ImageInfo) -> Option<usize> {
+unsafe fn process_point(x: usize, y: usize, pixels: *mut &mut [u8], image_info: &ImageInfo) -> Option<usize> {
     let point = pixel_to_point((x, y), image_info);
     let escape_time = escape_time(&point, ESCAPE_TIME);
 
@@ -158,7 +163,8 @@ unsafe fn process_point(x: usize, y: usize, pixels: &mut [u8], image_info: &Imag
     return escape_time;
 }
 
-unsafe fn set_pixel(value: Option<usize>, x: usize, y: usize, pixels: &mut [u8], image_info: &ImageInfo) {
+unsafe fn set_pixel(value: Option<usize>, x: usize, y: usize, pixels: *mut &mut [u8], image_info: &ImageInfo) {
+    let pixels = pixels.as_mut().expect("as_ref failed");
     let i = y * image_info.width + x;
 
     pixels[i] =  match value {
