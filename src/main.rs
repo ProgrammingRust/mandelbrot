@@ -3,6 +3,7 @@
 
 mod parsing;
 mod partition;
+mod cmdline;
 
 use std::cell::SyncUnsafeCell;
 use std::env;
