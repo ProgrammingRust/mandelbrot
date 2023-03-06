@@ -37,23 +37,7 @@ struct Cli {
     /// Vertical resolution of the overall image.
     #[arg(default_value_t=1120)]
     height:u32,
-
-    /// X offset of the part of the image we are computing.
-    #[arg(default_value_t=0)]
-    partitionXOffset:u32,
-
-    /// Y offset of the part of the image we are computing.
-    #[arg(default_value_t=0)]
-    partitionYOffset:u32,
-
-    /// Width of the part of the image we are computing.
-    #[arg(default_value_t=1680)]
-    partitionWidth:u32,
-
-    /// Height of the part of the image we are computing.
-    #[arg(default_value_t=1120)]
-    partitionHeight:u32,
-
+    
     /// Amount to scale the palette index by. Larger numbers should produce greater color variation.
     #[arg(default_value_t=255.0)]
     paletteScaleFactor:f64
