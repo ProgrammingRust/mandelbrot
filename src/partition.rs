@@ -8,6 +8,7 @@ Human: Please convert this Go code to Rust:
 ...
 AI: Here is the equivalent code in Rust:
 */
+use std::cell::SyncUnsafeCell;
 use crate::{escape_time, ImageInfo, pixel_to_point};
 
 /// Represents a subset of the image to be worked on.
@@ -43,8 +44,7 @@ impl Partition {
 
 const ESCAPE_TIME: usize = 255;
 
-pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pixels: *mut &mut [u8], nesting_level: i32) {
-    #[allow(unused_variables)]
+pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pixels: &SyncUnsafeCell<&mut [u8]>)  {
     let mut pixels_processed: u64 = 0;
 
     let mut perimeter_in_set = true;
@@ -62,7 +62,7 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pix
     // Check the top and bottom of the rectangle
     for y in y_values {
         for x in min_x..=max_x {
-            let escape_time = process_point(x, y, pixels, image_info);
+            let escape_time = process_point(x, y, pixels.get(), image_info);
 
             if escape_time.is_some() {
                 perimeter_in_set = false;
@@ -73,7 +73,7 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pix
     // Check the left and right sides of the rectangle
     for x in x_values {
         for y in min_y..=max_y {
-            let escape_time = process_point(x, y, pixels, image_info);
+            let escape_time = process_point(x, y, pixels.get(), image_info);
 
             if escape_time.is_some() {
                 perimeter_in_set = false;
@@ -85,69 +85,91 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: Partition, pix
        Then this means that the inside of the rectangle must also be in the set. When this happens, we
        fill in the entire inside of the rectangle with the 'set' color (black) and exit without doing any further work */
     if perimeter_in_set {
-        println!("{:03?}: Perimeter in set: {:?}\n", nesting_level, p);
+        //println!("Perimeter in set: {:?}\n", p);
         for x in min_x + 1..max_x {
             for y in min_y + 1..max_y {
-                set_pixel(None, x, y, pixels, image_info);
+                set_pixel(None, x, y, pixels.get(), image_info);
                 pixels_processed += 1;
             }
         }
-        // Base case for the recursion.  If we encounter these little rectangles, we just compute their points individually.
+        //If we encounter these little rectangles, we just compute their points individually.
     } else if p.width <= 2 || p.height <= 2 {
         for x in min_x..=max_x {
             for y in min_y..=max_y {
-                println!("{:03?}: Base case: width: {} height: {}\n", nesting_level, p.width, p.height);
-                process_point(x, y, pixels, image_info);
+                //println!("Base case: width: {} height: {}\n", p.width, p.height);
+                process_point(x, y, pixels.get(), image_info);
             }
         }
-    // Split the current rectangle up into four rectangles and recurse.
+    // Split the current rectangle up into four rectangles and add them to the queue.
     } else {
-        let mut x_midpoint;
-        let mut y_midpoint;
-        let mut x_midpoint_plus_one;
-        let mut y_midpoint_plus_one;
+        let sub_partitions = subdivide_partition(p);
 
-        let width = max_x - min_x;
-        let height = max_y - min_y;
+        assert_eq!(sub_partitions.len(), 4);
 
-        x_midpoint = min_x + width / 2 + width % 2;
-        if x_midpoint < min_x {
-            x_midpoint = min_x;
-        }
-
-        y_midpoint = min_y + height / 2 + height % 2;
-        if y_midpoint < min_y {
-            y_midpoint = min_y;
-        }
-
-        x_midpoint_plus_one = x_midpoint + 1;
-        if x_midpoint_plus_one > max_x {
-            x_midpoint_plus_one = max_x;
-        }
-
-        y_midpoint_plus_one = y_midpoint + 1;
-        if y_midpoint_plus_one > max_y {
-            y_midpoint_plus_one = max_y;
-        }
-
-        let upper_left = Partition::from_points(min_x, min_y, x_midpoint, y_midpoint);
-        println!("{:03?}: Upper Left: {:03?}", nesting_level, upper_left);
-
-        let upper_right = Partition::from_points(x_midpoint_plus_one, min_y, max_x, y_midpoint);
-        println!("{:03?}: Upper Right: {:03?}", nesting_level, upper_right);
-
-        let lower_left = Partition::from_points(min_x, y_midpoint_plus_one, x_midpoint, max_y);
-        println!("{:03?}: Lower Left: {:03?}", nesting_level, lower_left);
-
-        let lower_right = Partition::from_points(x_midpoint_plus_one, y_midpoint_plus_one, max_x, max_y);
-        println!("{:03?}: Lower Right: {:03?}\n", nesting_level, lower_right);
-
-        process_partition(image_info, upper_left, pixels, nesting_level + 1);
-        process_partition(image_info, upper_right, pixels, nesting_level + 1);
-        process_partition(image_info, lower_left, pixels, nesting_level + 1);
-        process_partition(image_info, lower_right, pixels, nesting_level + 1);
+        rayon::join(|| process_partition(image_info, &sub_partitions[0], pixels),
+                    || process_partition(image_info, &sub_partitions[1], pixels));
+        rayon::join(|| process_partition(image_info, &sub_partitions[2], pixels),
+                    || process_partition(image_info, &sub_partitions[3], pixels));
     }
 }
+
+pub(crate) unsafe fn subdivide_partition( p: &Partition) -> Vec<Partition>  {
+    let mut result:Vec<Partition> = vec![];
+
+    let min_x = p.x_offset;
+    let max_x = min_x + p.width - 1;
+
+    let min_y = p.y_offset;
+    let max_y = min_y + p.height - 1;
+
+    let mut x_midpoint;
+    let mut y_midpoint;
+    let mut x_midpoint_plus_one;
+    let mut y_midpoint_plus_one;
+
+    let width = max_x - min_x;
+    let height = max_y - min_y;
+
+    x_midpoint = min_x + width / 2 + width % 2;
+    if x_midpoint < min_x {
+        x_midpoint = min_x;
+    }
+
+    y_midpoint = min_y + height / 2 + height % 2;
+    if y_midpoint < min_y {
+        y_midpoint = min_y;
+    }
+
+    x_midpoint_plus_one = x_midpoint + 1;
+    if x_midpoint_plus_one > max_x {
+        x_midpoint_plus_one = max_x;
+    }
+
+    y_midpoint_plus_one = y_midpoint + 1;
+    if y_midpoint_plus_one > max_y {
+        y_midpoint_plus_one = max_y;
+    }
+
+    let upper_left = Partition::from_points(min_x, min_y, x_midpoint, y_midpoint);
+    //println!("Upper Left: {:03?}", upper_left);
+
+    let upper_right = Partition::from_points(x_midpoint_plus_one, min_y, max_x, y_midpoint);
+    //println!("Upper Right: {:03?}", upper_right);
+
+    let lower_left = Partition::from_points(min_x, y_midpoint_plus_one, x_midpoint, max_y);
+    //println!("Lower Left: {:03?}", lower_left);
+
+    let lower_right = Partition::from_points(x_midpoint_plus_one, y_midpoint_plus_one, max_x, max_y);
+    //println!("Lower Right: {:03?}\n", lower_right);
+
+    result.push(upper_left);
+    result.push(upper_right);
+    result.push(lower_left);
+    result.push(lower_right);
+
+    return result;
+}
+
 
 unsafe fn process_point(x: usize, y: usize, pixels: *mut &mut [u8], image_info: &ImageInfo) -> Option<usize> {
     let point = pixel_to_point((x, y), image_info);
@@ -160,7 +182,6 @@ unsafe fn process_point(x: usize, y: usize, pixels: *mut &mut [u8], image_info: 
 
 unsafe fn set_pixel(value: Option<usize>, x: usize, y: usize, pixels: *mut &mut [u8], image_info: &ImageInfo) {
     let pixels = pixels.as_mut().expect("as_ref failed");
-
     let i = y * image_info.width + x;
 
     pixels[i] =  match value {

@@ -3,7 +3,7 @@
 mod parsing;
 mod partition;
 
-use std::cell::{SyncUnsafeCell};
+use std::cell::SyncUnsafeCell;
 use std::env;
 use std::num::ParseIntError;
 use image::{ImageBuffer, Luma};
@@ -133,29 +133,38 @@ fn main() {
         cplx_lower_right,
     };
 
-    let partition = Partition {
+    let root_partition = Partition {
         x_offset: 0,
         y_offset: 0,
         width: image_info.width,
         height: image_info.height,
     };
 
-
     let mut pixels_vec = vec![0u8; bounds.0 * bounds.1];
     let mut pixels = SyncUnsafeCell::new(pixels_vec.as_mut_slice());
 
-    rayon::scope(|s|  {
-        //outputs.push(Box::from(vec![1,2,3].as_slice()));
+    unsafe {
+        process_partition(&image_info, &root_partition, &pixels);
+    }
 
-        s.spawn(|_s| unsafe {
-            //render(pixels.get(), image_info);
-            process_partition(&image_info, partition, pixels.get(), 0);
-        });
+    /*
+    let mut queue: Mutex<SegQueue<Partition>> = Mutex::new(SegQueue::new());
+    queue.lock().unwrap().push(root_partition);
+
+    rayon::scope(|s|   {
+        let mut queue = &mut queue;
+
+        while let Some(p) = queue.lock().unwrap().pop()
+        {
+            s.spawn(  |_|   unsafe {
+                process_partition(&image_info, p, &pixels, queue);
+            });
+        }
     });
 
+     */
     write_image(&args[1], &mut pixels, bounds)
         .expect("error writing PNG file");
-
 }
 
 impl From<rug::float::ParseFloatError> for MyError {
