@@ -1,4 +1,5 @@
 #![feature(sync_unsafe_cell)]
+#![allow(clippy::needless_return)]
 
 mod parsing;
 mod partition;
