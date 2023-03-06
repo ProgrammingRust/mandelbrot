@@ -147,22 +147,6 @@ fn main() {
         process_partition(&image_info, &root_partition, &pixels);
     }
 
-    /*
-    let mut queue: Mutex<SegQueue<Partition>> = Mutex::new(SegQueue::new());
-    queue.lock().unwrap().push(root_partition);
-
-    rayon::scope(|s|   {
-        let mut queue = &mut queue;
-
-        while let Some(p) = queue.lock().unwrap().pop()
-        {
-            s.spawn(  |_|   unsafe {
-                process_partition(&image_info, p, &pixels, queue);
-            });
-        }
-    });
-
-     */
     write_image(&args[1], &mut pixels, bounds)
         .expect("error writing PNG file");
 }
