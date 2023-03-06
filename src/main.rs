@@ -4,7 +4,6 @@ mod parsing;
 mod partition;
 
 use std::cell::SyncUnsafeCell;
-use std::collections::VecDeque;
 use std::env;
 use std::num::ParseIntError;
 use image::{ImageBuffer, Luma};
@@ -111,10 +110,10 @@ unsafe fn render(pixels: *mut &mut [u8], image_info: ImageInfo)
 
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
-fn write_image(filename: &str, pixels: &mut [u8], bounds: (usize, usize))
+fn write_image(filename: &str, pixels: &mut SyncUnsafeCell<&mut [u8]>, bounds: (usize, usize))
                -> Result<(), std::io::Error>
 {
-    let pixels = pixels;
+    let pixels = pixels.get_mut();
 
     let width = bounds.0 as u32;
     let height = bounds.1 as u32;
@@ -165,34 +164,30 @@ fn main() {
         height: image_info.height,
     };
 
-
     let mut pixels_vec = vec![0u8; bounds.0 * bounds.1];
     let mut pixels = SyncUnsafeCell::new(pixels_vec.as_mut_slice());
 
-    let mut queue: VecDeque<Partition> = VecDeque::new();
-    queue.push_front(root_partition);
+    unsafe {
+        process_partition(&image_info, &root_partition, &pixels);
+    }
 
-    rayon::scope(|s|  {
-        while let Some(p) = queue.pop_back()
+    /*
+    let mut queue: Mutex<SegQueue<Partition>> = Mutex::new(SegQueue::new());
+    queue.lock().unwrap().push(root_partition);
+
+    rayon::scope(|s|   {
+        let mut queue = &mut queue;
+
+        while let Some(p) = queue.lock().unwrap().pop()
         {
-            //process_partition(&image_info, p, pixels.as_mut_slice(), &mut queue);
-
-            s.spawn(|_|   {
-                process_partition(&image_info, p, pixels);
+            s.spawn(  |_|   unsafe {
+                process_partition(&image_info, p, &pixels, queue);
             });
         }
     });
-    /*
-    rayon::scope(|s|  {
-        //outputs.push(Box::from(vec![1,2,3].as_slice()));
 
-        s.spawn(|s| unsafe {
-            //render(pixels.get(), image_info);
-            process_partition(s, &image_info, partition, pixels, 0);
-        });
-    });
-*/
-    write_image(&args[1], pixels.get_mut(), bounds)
+     */
+    write_image(&args[1], &mut pixels, bounds)
         .expect("error writing PNG file");
 }
 
