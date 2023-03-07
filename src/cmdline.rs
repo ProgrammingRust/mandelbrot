@@ -2,7 +2,6 @@
 
 use std::process::exit;
 use clap::Parser;
-use num::abs;
 use rug::{Complex, Float};
 use crate::ImageInfo;
 
@@ -13,7 +12,7 @@ struct Cli {
     //verbose:bool,
 
     /// Name of the file in which to save the image.
-    #[arg(short,long,default_value_t=String::from("out.png"))]
+    #[arg(short,long,default_value_t=String::from("mandelbrot.png"))]
     filename:String,
 
     /// The number of digits of floating point precision to use for calculations.
@@ -64,12 +63,12 @@ pub(crate) fn parse_cmdline_args() -> ImageInfo {
         Some(val) => val,
     };
 
-    let mut scale: Float;
-    let mut image_width: Float;
-    let mut image_height: Float;
-    let mut x_center: Float;
-    let mut y_center: Float;
-    let mut aspect_ratio: Float;
+    let scale: Float;
+    let image_width: Float;
+    let image_height: Float;
+    let x_center: Float;
+    let y_center: Float;
+    let aspect_ratio: Float;
 
     scale = Float::with_val(local_prec, Float::parse(cli.scale).expect("scale parameter invalid"));
 
@@ -88,10 +87,10 @@ pub(crate) fn parse_cmdline_args() -> ImageInfo {
 
     let y_scale = Float::with_val(local_prec,&aspect_ratio * &scale);
 
-    let x_max = Float::with_val(local_prec,&x_center + &scale) * &aspect_ratio;
-    let x_min = Float::with_val(local_prec,&x_center - &scale) * &aspect_ratio;
-    let y_max = Float::with_val(local_prec,&y_center + &scale) * &aspect_ratio;
-    let y_min = Float::with_val(local_prec,&y_center - &scale) * &aspect_ratio;
+    let x_max = Float::with_val(local_prec,&x_center + &scale);
+    let x_min = Float::with_val(local_prec,&x_center - &scale);
+    let y_max = Float::with_val(local_prec,&y_center + &y_scale);
+    let y_min = Float::with_val(local_prec,&y_center - &y_scale);
 
 
     let x_pixel_density = Float::with_val(local_prec,&x_max - &x_min) / cli.width;
@@ -114,17 +113,16 @@ pub(crate) fn parse_cmdline_args() -> ImageInfo {
 
        See: https://stackoverflow.com/a/10484553
      */
-    let mut precision:u32 = match cli.numDigits {
+    let precision:u32 = match cli.numDigits {
         Some(val) => val,
         None => {
             // d = Num decimal digits required.
             let d = max_pixel_density.log10().to_f64();
 
             // b = num binary digits required.
-            // b = d / (log(2)/log(10))
-            // log(2)/log(10) = 0.3010
+            // b = d / log(2)
 
-            let b = d / 0.3010;
+            let b = d / std::f64::consts::LOG10_2;
 
             let mut precision = b as u32;
 
@@ -136,10 +134,12 @@ pub(crate) fn parse_cmdline_args() -> ImageInfo {
         }
     };
 
+    /*
     println!("aspect_ratio:\t{}", aspect_ratio);
     println!("scale:\t{}", scale);
     println!("upper_left:\t({}, {})", x_min, y_min);
     println!("lower_right:\t({}, {})", x_max, y_max);
+    */
 
     return ImageInfo {
         width: cli.width,

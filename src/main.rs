@@ -5,7 +5,6 @@ mod partition;
 mod cmdline;
 
 use std::cell::SyncUnsafeCell;
-use std::env;
 use std::num::ParseIntError;
 use image::{ImageBuffer, Luma};
 
