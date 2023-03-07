@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command" nameIsGenerated="true">
-    <option name="command" value="run -- --x-center=-0.743643135&#10;          --y-center=0.131825963 &#10;          --scale=0.000007314 &#10;         --width=2560 --height=1920 &#10;         --iterations=2048 &#10;         --num-digits=100 &#10;         --filename=1.png&#10;" />
+    <option name="command" value="run " />
     <option name="workingDirectory" value="file://$PROJECT_DIR$" />
     <option name="channel" value="NIGHTLY" />
     <option name="requiredFeatures" value="true" />

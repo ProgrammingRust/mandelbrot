@@ -63,16 +63,16 @@ pub(crate) fn parse_cmdline_args() -> ImageInfo {
         Some(val) => val,
     };
 
-    let scale: Float;
+    let x_scale: Float;
     let image_width: Float;
     let image_height: Float;
     let x_center: Float;
     let y_center: Float;
     let aspect_ratio: Float;
 
-    scale = Float::with_val(local_prec, Float::parse(cli.scale).expect("scale parameter invalid"));
+    x_scale = Float::with_val(local_prec, Float::parse(cli.scale).expect("scale parameter invalid"));
 
-    if scale <=0 {
+    if x_scale <=0 {
         eprintln!("The scale parameter must be larger than zero.");
         exit(1);
     }
@@ -85,10 +85,10 @@ pub(crate) fn parse_cmdline_args() -> ImageInfo {
 
     aspect_ratio = image_height / image_width;
 
-    let y_scale = Float::with_val(local_prec,&aspect_ratio * &scale);
+    let y_scale = Float::with_val(local_prec,&aspect_ratio * &x_scale);
 
-    let x_max = Float::with_val(local_prec,&x_center + &scale);
-    let x_min = Float::with_val(local_prec,&x_center - &scale);
+    let x_max = Float::with_val(local_prec,&x_center + &x_scale);
+    let x_min = Float::with_val(local_prec,&x_center - &x_scale);
     let y_max = Float::with_val(local_prec,&y_center + &y_scale);
     let y_min = Float::with_val(local_prec,&y_center - &y_scale);
 
