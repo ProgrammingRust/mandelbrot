@@ -108,8 +108,12 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pi
 
         rayon::join(|| process_partition(image_info, &sub_partitions[0], pixels),
                     || process_partition(image_info, &sub_partitions[1], pixels));
+
+        // Is the current thread blocked between these two calls?
+
         rayon::join(|| process_partition(image_info, &sub_partitions[2], pixels),
                     || process_partition(image_info, &sub_partitions[3], pixels));
+
     }
 }
 
@@ -173,7 +177,7 @@ pub(crate) unsafe fn subdivide_partition( p: &Partition) -> Vec<Partition>  {
 
 unsafe fn process_point(x: usize, y: usize, pixels: *mut &mut [u8], image_info: &ImageInfo) -> Option<usize> {
     let point = pixel_to_point((x, y), image_info);
-    let escape_time = escape_time(&point, ESCAPE_TIME);
+    let escape_time = escape_time(image_info, &point, ESCAPE_TIME);
 
     set_pixel(escape_time, x, y, pixels, image_info);
 
