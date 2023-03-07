@@ -9,7 +9,9 @@ Human: Please convert this Go code to Rust:
 AI: Here is the equivalent code in Rust:
 */
 use std::cell::SyncUnsafeCell;
-use crate::{escape_time, ImageInfo, pixel_to_point};
+use crate::ImageInfo;
+use crate::math::{escape_time, pixel_to_point};
+
 
 /// Represents a subset of the image to be worked on.
 /// The primary coordinate system is pixels, with the complex numbers being derived
