@@ -146,7 +146,7 @@ fn main() {
     let mut pixels = SyncUnsafeCell::new(pixels_vec.as_mut_slice());
 
     unsafe {
-        process_partition(&image_info, &root_partition, &pixels);
+        rayon::scope(|_| process_partition(&image_info, &root_partition, &pixels) );
     }
 
     write_image(&args[1], &mut pixels, bounds)
