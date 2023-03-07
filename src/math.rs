@@ -47,8 +47,6 @@ pub(crate) fn pixel_to_point(pixel: (usize, usize), img_info: &ImageInfo) -> Com
     )
 }
 
-
-
 // Unit tests
 #[cfg(test)]
 pub(crate) mod tests {

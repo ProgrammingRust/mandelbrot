@@ -58,10 +58,7 @@ pub(crate) fn parse_cmdline_args() -> ImageInfo {
        for generating the image.
     */
 
-    let local_prec = match cli.numDigits {
-        None => 200,
-        Some(val) => val,
-    };
+    let local_prec = cli.numDigits.unwrap_or(200);
 
     let x_scale: Float;
     let image_width: Float;

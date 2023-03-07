@@ -1,5 +1,6 @@
 #![feature(sync_unsafe_cell)]
 #![allow(clippy::needless_return)]
+#![allow(clippy::needless_late_init)]
 
 mod partition;
 mod cmdline;
