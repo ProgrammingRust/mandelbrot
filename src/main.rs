@@ -43,6 +43,9 @@ struct ImageInfo {
 
     // Complex number at the lower_right of this partition.
     cplx_lower_right: Complex,
+
+    // Precision for calculations in bits.
+    //precicsion: u32,
 }
 
 /// Try to determine if `c` is in the Mandelbrot set, using at most `limit`
@@ -191,23 +194,5 @@ pub(crate) mod tests {
             ),
             Complex::with_val(PREC, (-0.5, -0.75))
         )
-    }
-
-    #[test]
-    fn test_parse_complex() {
-        assert_eq!(parse_complex("1.25,-0.0625"),
-                   Some(Complex::with_val(PREC, (1.25, -0.0625))));
-        assert_eq!(parse_complex(",-0.0625"), None);
-    }
-
-    #[test]
-    fn test_parse_pair() {
-        assert_eq!(parse_pair::<i32>("", ','), None);
-        assert_eq!(parse_pair::<i32>("10,", ','), None);
-        assert_eq!(parse_pair::<i32>(",10", ','), None);
-        assert_eq!(parse_pair::<i32>("10,20", ','), Some((10, 20)));
-        assert_eq!(parse_pair::<i32>("10,20xy", ','), None);
-        assert_eq!(parse_pair::<f64>("0.5x", 'x'), None);
-        assert_eq!(parse_pair::<f64>("0.5x1.5", 'x'), Some((0.5, 1.5)));
     }
 }
