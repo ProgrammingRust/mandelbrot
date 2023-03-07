@@ -3,51 +3,53 @@
 use std::process::exit;
 use clap::Parser;
 use num::abs;
-use rug::Float;
+use rug::{Complex, Float};
+use crate::ImageInfo;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Print detailed program execution information.
-    verbose:bool,
+    //verbose:bool,
 
     /// Name of the file in which to save the image.
-    #[arg(default_value_t=String::from("out.png"))]
+    #[arg(short,long,default_value_t=String::from("out.png"))]
     filename:String,
 
     /// The number of digits of floating point precision to use for calculations.
+    #[arg(long)]
     numDigits:Option<u32>,
 
     /// The maximum number of iterations to run before bailing out.
-    #[arg(default_value_t=1024)]
+    #[arg(short,long, default_value_t=1024)]
     iterations:u32,
 
     /// x value in the complex plane of the center of the image
-    #[arg(default_value_t=String::from("-0.7"))]
+    #[arg(short,long, default_value_t=String::from("-0.7"))]
     xCenter:String,
 
     /// y value in the complex plane of the center of the image
-    #[arg(default_value_t=String::from("0.0"))]
+    #[arg(short,long, default_value_t=String::from("0.0"))]
     yCenter:String,
 
     /// Horizontal scale of the image in the complex plane, will be added to the center point to determine image dimensions
-    #[arg(default_value_t=String::from("1.53845"))]
+    #[arg(short, long, default_value_t=String::from("1.53845"))]
     scale:String,
 
     /// Horizontal resolution of the overall image.
-    #[arg(default_value_t=1680)]
-    width:u32,
+    #[arg(long, default_value_t=1680)]
+    width:usize,
 
     /// Vertical resolution of the overall image.
-    #[arg(default_value_t=1120)]
-    height:u32,
+    #[arg(long, default_value_t=1120)]
+    height:usize,
     
     /// Amount to scale the palette index by. Larger numbers should produce greater color variation.
-    #[arg(default_value_t=255.0)]
+    #[arg(short,long, default_value_t=255.0)]
     paletteScaleFactor:f64
 }
 
-pub(crate) fn parse_cmdline_args() {
+pub(crate) fn parse_cmdline_args() -> ImageInfo {
     let cli = Cli::parse();
 
     /* If the numDigits parameter wasn't specified, set numDigits to a super high value temporarily so we can
@@ -92,8 +94,8 @@ pub(crate) fn parse_cmdline_args() {
     let y_min = Float::with_val(local_prec,&y_center - &scale) * &aspect_ratio;
 
 
-    let x_pixel_density = x_max - x_min / cli.width;
-    let y_pixel_density = y_max - y_min / cli.height;
+    let x_pixel_density = Float::with_val(local_prec,&x_max - &x_min) / cli.width;
+    let y_pixel_density = Float::with_val(local_prec,&y_max - &y_min) / cli.height;
 
     let max_pixel_density: Float;
 
@@ -112,23 +114,40 @@ pub(crate) fn parse_cmdline_args() {
 
        See: https://stackoverflow.com/a/10484553
      */
-    let mut precision:u32;
+    let mut precision:u32 = match cli.numDigits {
+        Some(val) => val,
+        None => {
+            // d = Num decimal digits required.
+            let d = max_pixel_density.log10().to_f64();
 
-    if cli.numDigits == None {
-        // d = Num decimal digits required.
-        let d = max_pixel_density.log10().to_f64();
+            // b = num binary digits required.
+            // b = d / (log(2)/log(10))
+            // log(2)/log(10) = 0.3010
 
-        // b = num binary digits required.
-        // b = d / (log(2)/log(10))
-        // log(2)/log(10) = 0.3010
+            let b = d / 0.3010;
 
-        let b = d / 0.3010;
+            let mut precision = b as u32;
 
-        precision = b as u32;
+            if precision < 20 {
+                precision = 20;
+            }
 
-        if precision < 20 {
-            precision = 20;
+            precision
         }
+    };
+
+    println!("aspect_ratio:\t{}", aspect_ratio);
+    println!("scale:\t{}", scale);
+    println!("upper_left:\t({}, {})", x_min, y_min);
+    println!("lower_right:\t({}, {})", x_max, y_max);
+
+    return ImageInfo {
+        width: cli.width,
+        height: cli.height,
+        cplx_upper_left: Complex::with_val(precision, (x_min, y_min)),
+        cplx_lower_right: Complex::with_val(precision, (x_max, y_max)),
+        precision,
+        filename: cli.filename,
     }
 
 }

@@ -1,7 +1,6 @@
 #![feature(sync_unsafe_cell)]
 #![allow(clippy::needless_return)]
 
-mod parsing;
 mod partition;
 mod cmdline;
 
@@ -14,11 +13,8 @@ use rug::{Complex, Float};
 use rug::float::ParseFloatError;
 use rug::ops::CompleteRound;
 use thiserror::Error as ThisError;
-use crate::parsing::{parse_complex, parse_pair};
+use crate::cmdline::parse_cmdline_args;
 use crate::partition::{Partition, process_partition};
-
-const PREC: u32 = 40;
-
 
 #[derive(ThisError, Debug)]
 pub enum MyError {
@@ -35,17 +31,20 @@ struct ImageInfo {
     /// Width in pixels
     width: usize,
 
-    // Height in pixels
+    /// Height in pixels
     height: usize,
 
-    // Complex number at the upper left of this partition.
+    /// Complex number at the upper left of this partition.
     cplx_upper_left: Complex,
 
-    // Complex number at the lower_right of this partition.
+    /// Complex number at the lower_right of this partition.
     cplx_lower_right: Complex,
 
-    // Precision for calculations in bits.
-    //precicsion: u32,
+    /// Precision for calculations in bits.
+    precision: u32,
+
+    /// Filename for saving the output.
+    filename: String,
 }
 
 /// Try to determine if `c` is in the Mandelbrot set, using at most `limit`
@@ -56,10 +55,12 @@ struct ImageInfo {
 /// origin. If `c` seems to be a member (more precisely, if we reached the
 /// iteration limit without being able to prove that `c` is not a member),
 /// return `None`.
-fn escape_time(c: &Complex, limit: usize) -> Option<usize> {
-    let four: Float = Float::with_val(PREC, 4.0);
+fn escape_time(img_info: &ImageInfo, c: &Complex, limit: usize) -> Option<usize> {
+    let precision = img_info.precision;
 
-    let mut z = Complex::with_val(PREC, (0.0, 0.0));// { re: 0.0, im: 0.0 };
+    let four: Float = Float::with_val(precision, 4.0);
+
+    let mut z = Complex::with_val(precision, (0.0, 0.0));// { re: 0.0, im: 0.0 };
 
     for i in 0..limit {
         if z.clone().norm().real() > &four {
@@ -75,14 +76,16 @@ fn escape_time(c: &Complex, limit: usize) -> Option<usize> {
 /// corresponding point on the complex plane.
 fn pixel_to_point(pixel: (usize, usize), img_info: &ImageInfo) -> Complex
 {
-    let (set_width, set_height) =
-        ((img_info.cplx_lower_right.real() - img_info.cplx_upper_left.real()).complete(PREC),
-         (img_info.cplx_upper_left.imag() - img_info.cplx_lower_right.imag()).complete(PREC));
+    let precision = img_info.precision;
 
-    Complex::with_val(PREC,
+    let (set_width, set_height) =
+        ((img_info.cplx_lower_right.real() - img_info.cplx_upper_left.real()).complete(precision),
+         (img_info.cplx_upper_left.imag() - img_info.cplx_lower_right.imag()).complete(precision));
+
+    Complex::with_val(precision,
                       (
-                          img_info.cplx_upper_left.real() + Float::with_val(PREC, (pixel.0) as f64) * set_width / img_info.width as f64,
-                          img_info.cplx_upper_left.imag() - Float::with_val(PREC, (pixel.1) as f64) * set_height / img_info.height as f64
+                          img_info.cplx_upper_left.real() + Float::with_val(precision, pixel.0) * set_width / Float::with_val(precision, img_info.width) ,
+                          img_info.cplx_upper_left.imag() - Float::with_val(precision, pixel.1) * set_height / Float::with_val(precision, img_info.height)
                       ),
                       // Why subtraction here? pixel.1 increases as we go down,
                       // but the imaginary component increases as we go up.
@@ -114,29 +117,7 @@ fn write_image(filename: &str, pixels: &mut SyncUnsafeCell<&mut [u8]>, bounds: (
 
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() != 5 {
-        eprintln!("Usage: {} FILE PIXELS UPPERLEFT LOWERRIGHT",
-                  args[0]);
-        eprintln!("Example: {} mandel.png 1000x750 -1.20,0.35 -1,0.20",
-                  args[0]);
-        std::process::exit(1);
-    }
-
-    let bounds = parse_pair(&args[2], 'x')
-        .expect("error parsing image dimensions");
-    let cplx_upper_left = parse_complex(&args[3])
-        .expect("error parsing upper left corner point");
-    let cplx_lower_right = parse_complex(&args[4])
-        .expect("error parsing lower right corner point");
-
-    let image_info = ImageInfo {
-        width: bounds.0,
-        height: bounds.1,
-        cplx_upper_left,
-        cplx_lower_right,
-    };
+    let image_info = parse_cmdline_args();
 
     let root_partition = Partition {
         x_offset: 0,
@@ -145,14 +126,14 @@ fn main() {
         height: image_info.height,
     };
 
-    let mut pixels_vec = vec![0u8; bounds.0 * bounds.1];
+    let mut pixels_vec = vec![0u8; image_info.width * image_info.height];
     let mut pixels = SyncUnsafeCell::new(pixels_vec.as_mut_slice());
 
     unsafe {
         rayon::scope(|_| process_partition(&image_info, &root_partition, &pixels) );
     }
 
-    write_image(&args[1], &mut pixels, bounds)
+    write_image(&image_info.filename, &mut pixels, (image_info.width, image_info.height) )
         .expect("error writing PNG file");
 }
 
@@ -188,11 +169,13 @@ pub(crate) mod tests {
                 &ImageInfo {
                     width: 100,
                     height: 200,
-                    cplx_upper_left: Complex::with_val(PREC, (-1.0, 1.0)),
-                    cplx_lower_right: Complex::with_val(PREC, (1.0, -1.0))
+                    cplx_upper_left: Complex::with_val(40, (-1.0, 1.0)),
+                    cplx_lower_right: Complex::with_val(40, (1.0, -1.0)),
+                    precision: 40,
+                    filename: "".to_string(),
                 }
             ),
-            Complex::with_val(PREC, (-0.5, -0.75))
+            Complex::with_val(40, (-0.5, -0.75))
         )
     }
 }
