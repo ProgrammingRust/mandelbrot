@@ -106,26 +106,10 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pi
 
         assert_eq!(sub_partitions.len(), 4);
 
-        /* Not sure of this is faster or not.
-        rayon::join(
-            || process_partition(image_info, &sub_partitions[0], pixels),
-            || {
-                rayon::join(
-                    || process_partition(image_info, &sub_partitions[1], pixels),
-                    || {
-                        rayon::join(
-                            || process_partition(image_info, &sub_partitions[2], pixels),
-                            || process_partition(image_info, &sub_partitions[3], pixels) )
-                    });
-            });
-         */
-
-
         rayon::join(|| process_partition(image_info, &sub_partitions[0], pixels),
                     || process_partition(image_info, &sub_partitions[1], pixels));
 
-        // Is the current thread blocked between these two calls?  The code above
-        // was written to mitigate this possibility, but it does not seem to improve teh runtime much.
+        // Is the current thread blocked between these two calls?
 
         rayon::join(|| process_partition(image_info, &sub_partitions[2], pixels),
                     || process_partition(image_info, &sub_partitions[3], pixels));
