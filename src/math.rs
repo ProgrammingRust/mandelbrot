@@ -17,8 +17,9 @@ pub struct Iteration  {
 /// origin. If `c` seems to be a member (more precisely, if we reached the
 /// iteration limit without being able to prove that `c` is not a member),
 /// return `None`.
-pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex, limit: usize) -> Option<Iteration> {
+pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Iteration> {
     let precision = img_info.precision;
+    let max_iterations = img_info.iterations;
 
     let four: Float = Float::with_val(precision, 4.0);
 
@@ -28,7 +29,7 @@ pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex, limit: usize) -> Op
     let n = {
         let mut result:Option<usize> = None;
 
-        for i in 0..limit {
+        for i in 0..max_iterations {
             z_norm = z.clone().norm().real().clone();
 
             if z_norm > four {

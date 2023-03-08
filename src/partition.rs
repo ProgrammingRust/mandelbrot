@@ -44,8 +44,6 @@ impl Partition {
     }
 }
 
-const ESCAPE_TIME: usize = 255;
-
 pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pixels: &SyncUnsafeCell<&mut [Option<Iteration>]>)  {
     let mut pixels_processed: u64 = 0;
 
@@ -179,7 +177,7 @@ pub(crate) unsafe fn subdivide_partition( p: &Partition) -> Vec<Partition>  {
 
 unsafe fn process_point(image_info: &ImageInfo, x: usize, y: usize, pixels: *mut &mut [Option<Iteration>]) -> Option<usize> {
     let point = pixel_to_point((x, y), image_info);
-    let escape_time = escape_time(image_info, &point, ESCAPE_TIME);
+    let escape_time = escape_time(image_info, &point);
 
     let result =  match &escape_time {
         None => { None }
