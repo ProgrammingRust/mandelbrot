@@ -2,6 +2,13 @@ use rug::{Complex, Float};
 use rug::ops::CompleteRound;
 use crate::ImageInfo;
 
+#[derive(Debug, Clone)]
+pub struct Iteration  {
+    pub n:   usize,
+    pub norm: Float,
+    pub z:   Complex
+}
+
 /// Try to determine if `c` is in the Mandelbrot set, using at most `limit`
 /// iterations to decide.
 ///
@@ -10,21 +17,41 @@ use crate::ImageInfo;
 /// origin. If `c` seems to be a member (more precisely, if we reached the
 /// iteration limit without being able to prove that `c` is not a member),
 /// return `None`.
-pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex, limit: usize) -> Option<usize> {
+pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Iteration> {
     let precision = img_info.precision;
+    let max_iterations = img_info.iterations;
 
     let four: Float = Float::with_val(precision, 4.0);
 
     let mut z = Complex::with_val(precision, (0.0, 0.0));// { re: 0.0, im: 0.0 };
+    let mut z_norm:Float = Float::with_val(img_info.precision, 0.0);
 
-    for i in 0..limit {
-        if z.clone().norm().real() > &four {
-            return Some(i);
+    let n = {
+        let mut result:Option<usize> = None;
+
+        for i in 0..max_iterations {
+            z_norm = z.clone().norm().real().clone();
+
+            if z_norm > four {
+                result = Some(i);
+                break;
+            }
+            z = z.square() + c;
         }
-        z = z.square() + c;
-    }
 
-    None
+        result
+    };
+
+    return match n {
+        None => { None }
+        Some(n) => {
+            Some(Iteration {
+                n,
+                norm: z_norm,
+                z
+            })
+        }
+    }
 }
 
 /// Given the row and column of a pixel in the output image, return the
@@ -64,6 +91,7 @@ pub(crate) mod tests {
                     cplx_upper_left: Complex::with_val(40, (-1.0, 1.0)),
                     cplx_lower_right: Complex::with_val(40, (1.0, -1.0)),
                     precision: 40,
+                    iterations: 255,
                     filename: "".to_string(),
                 }
             ),

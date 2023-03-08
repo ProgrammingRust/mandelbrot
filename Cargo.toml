@@ -14,3 +14,6 @@ image = "0.24.5"
 rayon = "1"
 rug = "1.18.0"
 clap = {version="4.1.8", features=["derive"] }
+
+[dev-dependencies]
+matplotrust = "0.1.7"
