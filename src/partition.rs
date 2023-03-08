@@ -46,7 +46,7 @@ impl Partition {
 
 const ESCAPE_TIME: usize = 255;
 
-pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pixels: &SyncUnsafeCell<&mut [u8]>)  {
+pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pixels: &SyncUnsafeCell<&mut [u16]>)  {
     let mut pixels_processed: u64 = 0;
 
     let mut perimeter_in_set = true;
@@ -177,7 +177,7 @@ pub(crate) unsafe fn subdivide_partition( p: &Partition) -> Vec<Partition>  {
 }
 
 
-unsafe fn process_point(x: usize, y: usize, pixels: *mut &mut [u8], image_info: &ImageInfo) -> Option<usize> {
+unsafe fn process_point(x: usize, y: usize, pixels: *mut &mut [u16], image_info: &ImageInfo) -> Option<usize> {
     let point = pixel_to_point((x, y), image_info);
     let escape_time = escape_time(image_info, &point, ESCAPE_TIME);
 
@@ -186,13 +186,13 @@ unsafe fn process_point(x: usize, y: usize, pixels: *mut &mut [u8], image_info: 
     return escape_time;
 }
 
-unsafe fn set_pixel(value: Option<usize>, x: usize, y: usize, pixels: *mut &mut [u8], image_info: &ImageInfo) {
+unsafe fn set_pixel(value: Option<usize>, x: usize, y: usize, pixels: *mut &mut [u16], image_info: &ImageInfo) {
     let pixels = pixels.as_mut().expect("as_ref failed");
     let i = y * image_info.width + x;
 
     pixels[i] =  match value {
             None => 0,  // Point is in set if there is no escape time.
-            Some(count) => 255 - count as u8
+            Some(count) =>  count as u16
         };
 }
 

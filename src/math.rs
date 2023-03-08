@@ -64,6 +64,7 @@ pub(crate) mod tests {
                     cplx_upper_left: Complex::with_val(40, (-1.0, 1.0)),
                     cplx_lower_right: Complex::with_val(40, (1.0, -1.0)),
                     precision: 40,
+                    iterations: 255,
                     filename: "".to_string(),
                 }
             ),

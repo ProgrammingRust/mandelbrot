@@ -6,6 +6,8 @@ mod partition;
 mod cmdline;
 mod math;
 mod output;
+mod splines;
+mod palette;
 
 use std::cell::SyncUnsafeCell;
 
@@ -13,6 +15,16 @@ use rug::Complex;
 use crate::cmdline::parse_cmdline_args;
 use crate::output::write_image;
 use crate::partition::{Partition, process_partition};
+use thiserror::Error as ThisError;
+use crate::palette::generate_palette;
+
+#[derive(ThisError, Debug)]
+pub enum MyError {
+    /// Unrecoverable logic errors.
+    #[error("Internal error: {0}")]
+    InternalError(String),
+}
+
 
 /// Represents the image to be worked on.
 /// The primary coordinate system is pixels, with the complex numbers being derived
@@ -34,6 +46,9 @@ struct ImageInfo {
     /// Precision for calculations in bits.
     precision: u32,
 
+    /// Number of iterations.
+    iterations: usize,
+
     /// Filename for saving the output.
     filename: String,
 }
@@ -48,13 +63,15 @@ fn main() {
         height: image_info.height,
     };
 
-    let mut pixels_vec = vec![0u8; image_info.width * image_info.height];
+    let mut pixels_vec = vec![0u16; image_info.width * image_info.height];
     let mut pixels = SyncUnsafeCell::new(pixels_vec.as_mut_slice());
 
     unsafe {
         rayon::scope(|_| process_partition(&image_info, &root_partition, &pixels) );
     }
 
-    write_image(&image_info.filename, &mut pixels, (image_info.width, image_info.height) )
+    let palette = generate_palette(image_info.iterations);
+
+    write_image(&image_info.filename, &mut pixels, (image_info.width, image_info.height), palette )
         .expect("error writing PNG file");
 }

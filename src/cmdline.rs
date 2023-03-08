@@ -21,7 +21,7 @@ struct Cli {
 
     /// The maximum number of iterations to run before bailing out.
     #[arg(short,long, default_value_t=1024)]
-    iterations:u32,
+    iterations:usize,
 
     /// x value in the complex plane of the center of the image
     #[arg(short,long, default_value_t=String::from("-0.7"))]
@@ -144,6 +144,7 @@ pub(crate) fn parse_cmdline_args() -> ImageInfo {
         cplx_upper_left: Complex::with_val(precision, (x_min, y_min)),
         cplx_lower_right: Complex::with_val(precision, (x_max, y_max)),
         precision,
+        iterations: cli.iterations,
         filename: cli.filename,
     }
 
