@@ -64,7 +64,7 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pi
     // Check the top and bottom of the rectangle
     for y in y_values {
         for x in min_x..=max_x {
-            let escape_time = process_point(x, y, pixels.get(), image_info);
+            let escape_time = process_point(image_info, x, y, pixels.get());
 
             if escape_time.is_some() {
                 perimeter_in_set = false;
@@ -75,7 +75,7 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pi
     // Check the left and right sides of the rectangle
     for x in x_values {
         for y in min_y..=max_y {
-            let escape_time = process_point(x, y, pixels.get(), image_info);
+            let escape_time = process_point(image_info, x, y, pixels.get());
 
             if escape_time.is_some() {
                 perimeter_in_set = false;
@@ -99,7 +99,7 @@ pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pi
         for x in min_x..=max_x {
             for y in min_y..=max_y {
                 //println!("Base case: width: {} height: {}\n", p.width, p.height);
-                process_point(x, y, pixels.get(), image_info);
+                process_point(image_info, x, y, pixels.get());
             }
         }
     // Split the current rectangle up into four rectangles and add them to the queue.
@@ -177,7 +177,7 @@ pub(crate) unsafe fn subdivide_partition( p: &Partition) -> Vec<Partition>  {
 }
 
 
-unsafe fn process_point(x: usize, y: usize, pixels: *mut &mut [Option<Iteration>], image_info: &ImageInfo) -> Option<usize> {
+unsafe fn process_point(image_info: &ImageInfo, x: usize, y: usize, pixels: *mut &mut [Option<Iteration>]) -> Option<usize> {
     let point = pixel_to_point((x, y), image_info);
     let escape_time = escape_time(image_info, &point, ESCAPE_TIME);
 
