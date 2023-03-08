@@ -1,3 +1,5 @@
+// See: https://ruivieira.dev/monotonic-cubic-spline-interpolation-with-some-rust.html
+
 pub struct MonotonicCubicSpline {
     m_x: Vec<f64>,
     m_y: Vec<f64>,
