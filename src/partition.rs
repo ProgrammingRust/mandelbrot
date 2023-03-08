@@ -10,7 +10,7 @@ AI: Here is the equivalent code in Rust:
 */
 use std::cell::SyncUnsafeCell;
 use crate::ImageInfo;
-use crate::math::{escape_time, pixel_to_point};
+use crate::math::{escape_time, Iteration, pixel_to_point};
 
 
 /// Represents a subset of the image to be worked on.
@@ -46,7 +46,7 @@ impl Partition {
 
 const ESCAPE_TIME: usize = 255;
 
-pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pixels: &SyncUnsafeCell<&mut [u16]>)  {
+pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pixels: &SyncUnsafeCell<&mut [Option<Iteration>]>)  {
     let mut pixels_processed: u64 = 0;
 
     let mut perimeter_in_set = true;
@@ -177,23 +177,25 @@ pub(crate) unsafe fn subdivide_partition( p: &Partition) -> Vec<Partition>  {
 }
 
 
-unsafe fn process_point(x: usize, y: usize, pixels: *mut &mut [u16], image_info: &ImageInfo) -> Option<usize> {
+unsafe fn process_point(x: usize, y: usize, pixels: *mut &mut [Option<Iteration>], image_info: &ImageInfo) -> Option<usize> {
     let point = pixel_to_point((x, y), image_info);
     let escape_time = escape_time(image_info, &point, ESCAPE_TIME);
 
+    let result =  match &escape_time {
+        None => { None }
+        Some(it) => { Some(it.n)}
+    };
+
     set_pixel(escape_time, x, y, pixels, image_info);
 
-    return escape_time;
+    return result;
 }
 
-unsafe fn set_pixel(value: Option<usize>, x: usize, y: usize, pixels: *mut &mut [u16], image_info: &ImageInfo) {
+unsafe fn set_pixel(value: Option<Iteration>, x: usize, y: usize, pixels: *mut &mut [Option<Iteration>], image_info: &ImageInfo) {
     let pixels = pixels.as_mut().expect("as_ref failed");
     let i = y * image_info.width + x;
 
-    pixels[i] =  match value {
-            None => 0,  // Point is in set if there is no escape time.
-            Some(count) =>  count as u16
-        };
+    pixels[i] = value
 }
 
 

@@ -1,9 +1,10 @@
 use std::cell::SyncUnsafeCell;
 use image::{ImageBuffer, Luma, Rgb, RgbImage};
+use crate::math::Iteration;
 
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
-pub(crate) fn write_image(filename: &str, pixels: &mut SyncUnsafeCell<&mut [u16]>, bounds: (usize, usize), palette: Vec<Rgb<u8>>)
+pub(crate) fn write_image(filename: &str, pixels: &mut SyncUnsafeCell<&mut [Option<Iteration>]>, bounds: (usize, usize), palette: Vec<Rgb<u8>>)
                           -> Result<(), std::io::Error>
 {
     let pixels = pixels.get_mut();
@@ -15,12 +16,11 @@ pub(crate) fn write_image(filename: &str, pixels: &mut SyncUnsafeCell<&mut [u16]
     let black = Rgb::from([0,0,0]);
 
     for (x, y, pixel) in image_buffer.enumerate_pixels_mut() {
-        let pixel_iteration_value = pixels[(x + y * width) as usize] as usize;
+        let pixel_iteration_value = &pixels[(x + y * width) as usize];
 
-        if pixel_iteration_value == 0 {
-            *pixel = black
-        } else {
-            *pixel = palette[pixel_iteration_value];
+        match pixel_iteration_value {
+            None => { *pixel = black }
+            Some(it) => { *pixel = palette[it.n]; }
         }
     }
 

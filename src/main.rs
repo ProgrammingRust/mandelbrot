@@ -16,6 +16,7 @@ use crate::cmdline::parse_cmdline_args;
 use crate::output::write_image;
 use crate::partition::{Partition, process_partition};
 use thiserror::Error as ThisError;
+use crate::math::Iteration;
 use crate::palette::generate_palette;
 
 #[derive(ThisError, Debug)]
@@ -63,7 +64,7 @@ fn main() {
         height: image_info.height,
     };
 
-    let mut pixels_vec = vec![0u16; image_info.width * image_info.height];
+    let mut pixels_vec:Vec<Option<Iteration>> = vec![None; image_info.width * image_info.height];
     let mut pixels = SyncUnsafeCell::new(pixels_vec.as_mut_slice());
 
     unsafe {
