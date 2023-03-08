@@ -25,7 +25,7 @@ pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels:
 
         match palette_index {
             None => { *pixel = black }
-            Some(index) => { *pixel = palette[index]; }
+            Some(index) => { *pixel = palette[index.clamp(0, palette.len()-1)]; }
         }
     }
 
