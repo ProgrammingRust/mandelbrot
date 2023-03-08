@@ -12,10 +12,16 @@ pub(crate) fn write_image(filename: &str, pixels: &mut SyncUnsafeCell<&mut [u16]
     let height = bounds.1 as u32;
 
     let mut image_buffer = RgbImage::new(width, height);
+    let black = Rgb::from([0,0,0]);
 
     for (x, y, pixel) in image_buffer.enumerate_pixels_mut() {
         let pixel_iteration_value = pixels[(x + y * width) as usize] as usize;
-        *pixel = palette[pixel_iteration_value];
+
+        if pixel_iteration_value == 0 {
+            *pixel = black
+        } else {
+            *pixel = palette[pixel_iteration_value];
+        }
     }
 
     image_buffer.save(filename).expect("Image error");
