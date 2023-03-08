@@ -73,6 +73,5 @@ fn main() {
 
     let palette = generate_palette(image_info.iterations);
 
-    write_image(&image_info.filename, &mut pixels, (image_info.width, image_info.height), palette )
-        .expect("error writing PNG file");
+    write_image(&image_info, palette, &mut pixels);
 }
