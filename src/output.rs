@@ -3,11 +3,11 @@ use std::ops::Div;
 use image::{ImageBuffer, Luma, Rgb, RgbImage};
 use rug::Float;
 use crate::ImageInfo;
-use crate::math::Iteration;
+use crate::math::Pixel;
 
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
-pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels: &mut SyncUnsafeCell<&mut [Option<Iteration>]>)
+pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels: &mut SyncUnsafeCell<&mut [Option<Pixel>]>)
                           -> Result<(), std::io::Error>
 {
     let pixels = pixels.get_mut();
@@ -24,7 +24,10 @@ pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels:
 
         match iteration {
             None => { *pixel = black }
-            Some(index) => { *pixel = palette[index.clamp(0, (palette.len() - 1) as usize)]; }
+            Some(index_u16) => {
+                let index: usize = index_u16 as usize;
+                *pixel = palette[index.clamp(0, (palette.len() - 1) as usize )];
+            }
         }
     }
 
@@ -33,7 +36,7 @@ pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels:
     Ok(())
 }
 
-pub(crate) fn smooth_colour_index(image_info: &ImageInfo, n: Option<Iteration>, norm: Float) -> Option<usize> {
+pub(crate) fn smooth_colour_index(image_info: &ImageInfo, n: Option<Pixel>, norm: Float) -> Option<Pixel> {
     if n.is_none() {
         return None;
     } else {
@@ -51,6 +54,6 @@ pub(crate) fn smooth_colour_index(image_info: &ImageInfo, n: Option<Iteration>, 
         // n_smoothed = (iteration.n + 1) - logAbs
         let n_smoothed:Float = (n + 1) - log_log_abs;
 
-        return Some(n_smoothed.to_u32_saturating().unwrap() as usize);
+        return Some(n_smoothed.to_u32_saturating().unwrap() as Pixel);
     }
 }

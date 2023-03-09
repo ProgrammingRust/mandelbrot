@@ -3,7 +3,7 @@ use rug::ops::CompleteRound;
 use crate::ImageInfo;
 use crate::output::smooth_colour_index;
 
-pub(crate) type Iteration = usize;
+pub(crate) type Pixel = u16;
 
 /// Try to determine if `c` is in the Mandelbrot set, using at most `limit`
 /// iterations to decide.
@@ -13,7 +13,7 @@ pub(crate) type Iteration = usize;
 /// origin. If `c` seems to be a member (more precisely, if we reached the
 /// iteration limit without being able to prove that `c` is not a member),
 /// return `None`.
-pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Iteration> {
+pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Pixel> {
     let precision = img_info.precision;
     let max_iterations = img_info.iterations;
 
@@ -23,13 +23,13 @@ pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Iteration
     let mut z_norm:Float = Float::with_val(img_info.precision, 0.0);
 
     let n = {
-        let mut result:Option<Iteration> = None;
+        let mut result:Option<Pixel> = None;
 
         for i in 0..max_iterations {
             z_norm = z.clone().norm().real().clone();
 
             if z_norm > four {
-                result = Some(i as Iteration);
+                result = Some(i as Pixel);
                 break;
             }
             z = z.square() + c;
