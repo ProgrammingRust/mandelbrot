@@ -1,6 +1,9 @@
 use rug::{Complex, Float};
 use rug::ops::CompleteRound;
 use crate::ImageInfo;
+use crate::output::smooth_colour_index;
+
+pub(crate) type Pixel = u16;
 
 #[derive(Debug, Clone)]
 pub struct Iteration  {
@@ -27,13 +30,13 @@ pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Iteration
     let mut z_norm:Float = Float::with_val(img_info.precision, 0.0);
 
     let n = {
-        let mut result:Option<usize> = None;
+        let mut result:Option<Pixel> = None;
 
         for i in 0..max_iterations {
             z_norm = z.clone().norm().real().clone();
 
             if z_norm > four {
-                result = Some(i);
+                result = Some(i as Pixel);
                 break;
             }
             z = z.square() + c;
@@ -46,7 +49,7 @@ pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Iteration
         None => { None }
         Some(n) => {
             Some(Iteration {
-                n,
+                n: n as usize,
                 norm: z_norm,
                 z
             })

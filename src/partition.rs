@@ -10,7 +10,8 @@ AI: Here is the equivalent code in Rust:
 */
 use std::cell::SyncUnsafeCell;
 use crate::ImageInfo;
-use crate::math::{escape_time, Iteration, pixel_to_point};
+use crate::math::{escape_time, Pixel, pixel_to_point};
+use crate::output::smooth_colour_index;
 
 
 /// Represents a subset of the image to be worked on.
@@ -44,7 +45,7 @@ impl Partition {
     }
 }
 
-pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pixels: &SyncUnsafeCell<&mut [Option<Iteration>]>)  {
+pub(crate) unsafe fn process_partition(image_info: &ImageInfo, p: &Partition, pixels: &SyncUnsafeCell<&mut [Option<Pixel>]>)  {
     let mut pixels_processed: u64 = 0;
 
     let mut perimeter_in_set = true;
@@ -175,21 +176,25 @@ pub(crate) unsafe fn subdivide_partition( p: &Partition) -> Vec<Partition>  {
 }
 
 
-unsafe fn process_point(image_info: &ImageInfo, x: usize, y: usize, pixels: *mut &mut [Option<Iteration>]) -> Option<usize> {
+unsafe fn process_point(image_info: &ImageInfo, x: usize, y: usize, pixels: *mut &mut [Option<Pixel>]) -> Option<Pixel> {
     let point = pixel_to_point((x, y), image_info);
-    let escape_time = escape_time(image_info, &point);
+    let iteration = escape_time(image_info, &point);
 
-    let result =  match &escape_time {
+    let pixel:Option<Pixel> =  match &iteration {
         None => { None }
-        Some(it) => { Some(it.n)}
+        Some(iteration) => {
+            let palette_index = smooth_colour_index(image_info, iteration);
+
+            Some(palette_index as Pixel)
+        }
     };
 
-    set_pixel(escape_time, x, y, pixels, image_info);
+    set_pixel(pixel, x, y, pixels, image_info);
 
-    return result;
+    return pixel;
 }
 
-unsafe fn set_pixel(value: Option<Iteration>, x: usize, y: usize, pixels: *mut &mut [Option<Iteration>], image_info: &ImageInfo) {
+unsafe fn set_pixel(value: Option<Pixel>, x: usize, y: usize, pixels: *mut &mut [Option<Pixel>], image_info: &ImageInfo) {
     let pixels = pixels.as_mut().expect("as_ref failed");
     let i = y * image_info.width + x;
 

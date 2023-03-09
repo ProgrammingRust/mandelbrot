@@ -3,11 +3,11 @@ use std::ops::Div;
 use image::{ImageBuffer, Luma, Rgb, RgbImage};
 use rug::Float;
 use crate::ImageInfo;
-use crate::math::Iteration;
+use crate::math::{Iteration, Pixel};
 
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
-pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels: &mut SyncUnsafeCell<&mut [Option<Iteration>]>)
+pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels: &mut SyncUnsafeCell<&mut [Option<Pixel>]>)
                           -> Result<(), std::io::Error>
 {
     let pixels = pixels.get_mut();
@@ -21,11 +21,13 @@ pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels:
     for (x, y, pixel) in image_buffer.enumerate_pixels_mut() {
         let iteration = pixels[(x + y * width) as usize].clone();
 
-        let palette_index = smooth_colour_index(image_info, iteration);
 
-        match palette_index {
+        match iteration {
             None => { *pixel = black }
-            Some(index) => { *pixel = palette[index.clamp(0, palette.len()-1)]; }
+            Some(index_u16) => {
+                let index: usize = index_u16 as usize;
+                *pixel = palette[index.clamp(0, (palette.len() - 1) as usize )];
+            }
         }
     }
 
@@ -34,24 +36,22 @@ pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels:
     Ok(())
 }
 
-pub(crate) fn smooth_colour_index(image_info: &ImageInfo, iteration: Option<Iteration>) -> Option<usize> {
+pub(crate) fn smooth_colour_index(image_info: &ImageInfo, it: &Iteration) -> Pixel {
 
-    if iteration.is_none() {
-        return None;
-    } else {
-        let iteration = iteration.as_ref().unwrap();
-        let prec = image_info.precision;
-        // The code below computes: nSmooth := float64(n + 1) - math.Log( math.Log( cmplx.Abs(zn) ))/math.Log(2)
-        // See: http://linas.org/art-gallery/escape/smooth.html
+    let prec = image_info.precision;
 
-        let ln_2 = Float::with_val(prec, 2.0).ln();
+    let n = Float::with_val(prec, it.n);
 
-        // log_log_abs = ln(ln(abs))/ln(2)
-        let log_log_abs = iteration.norm.clone().ln().ln().div(ln_2);
+    // The code below computes: nSmooth := float64(n + 1) - math.Log( math.Log( cmplx.Abs(zn) ))/math.Log(2)
+    // See: http://linas.org/art-gallery/escape/smooth.html
 
-        // n_smoothed = (iteration.n + 1) - logAbs
-        let n_smoothed = iteration.n + 1 - log_log_abs;
+    let ln_2 = Float::with_val(prec, 2.0).ln();
 
-        return Some(n_smoothed.to_u32_saturating().unwrap() as usize );
-    }
+    // log_log_abs = ln(ln(abs))/ln(2)
+    let log_log_abs = it.norm.clone().ln().ln().div(ln_2);
+
+    // n_smoothed = (iteration.n + 1) - logAbs
+    let n_smoothed:Float = (n + 1) - log_log_abs;
+
+    return n_smoothed.to_u32_saturating().unwrap() as Pixel;
 }
