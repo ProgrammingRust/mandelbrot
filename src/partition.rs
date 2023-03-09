@@ -11,6 +11,7 @@ AI: Here is the equivalent code in Rust:
 use std::cell::SyncUnsafeCell;
 use crate::ImageInfo;
 use crate::math::{escape_time, Iteration, pixel_to_point};
+use crate::output::smooth_colour_index;
 
 
 /// Represents a subset of the image to be worked on.
@@ -181,7 +182,7 @@ unsafe fn process_point(image_info: &ImageInfo, x: usize, y: usize, pixels: *mut
 
     let result =  match &escape_time {
         None => { None }
-        Some(it) => { Some(it.n)}
+        Some(it) => { Some(*it)}
     };
 
     set_pixel(escape_time, x, y, pixels, image_info);

@@ -21,11 +21,10 @@ pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels:
     for (x, y, pixel) in image_buffer.enumerate_pixels_mut() {
         let iteration = pixels[(x + y * width) as usize].clone();
 
-        let palette_index = smooth_colour_index(image_info, iteration);
 
-        match palette_index {
+        match iteration {
             None => { *pixel = black }
-            Some(index) => { *pixel = palette[index.clamp(0, palette.len()-1)]; }
+            Some(index) => { *pixel = palette[index.clamp(0, (palette.len() - 1) as usize)]; }
         }
     }
 
@@ -34,24 +33,24 @@ pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels:
     Ok(())
 }
 
-pub(crate) fn smooth_colour_index(image_info: &ImageInfo, iteration: Option<Iteration>) -> Option<usize> {
-
-    if iteration.is_none() {
+pub(crate) fn smooth_colour_index(image_info: &ImageInfo, n: Option<Iteration>, norm: Float) -> Option<usize> {
+    if n.is_none() {
         return None;
     } else {
-        let iteration = iteration.as_ref().unwrap();
         let prec = image_info.precision;
+        let n = Float::with_val(prec, n.unwrap());
+
         // The code below computes: nSmooth := float64(n + 1) - math.Log( math.Log( cmplx.Abs(zn) ))/math.Log(2)
         // See: http://linas.org/art-gallery/escape/smooth.html
 
         let ln_2 = Float::with_val(prec, 2.0).ln();
 
         // log_log_abs = ln(ln(abs))/ln(2)
-        let log_log_abs = iteration.norm.clone().ln().ln().div(ln_2);
+        let log_log_abs = norm.clone().ln().ln().div(ln_2);
 
         // n_smoothed = (iteration.n + 1) - logAbs
-        let n_smoothed = iteration.n + 1 - log_log_abs;
+        let n_smoothed:Float = (n + 1) - log_log_abs;
 
-        return Some(n_smoothed.to_u32_saturating().unwrap() as usize );
+        return Some(n_smoothed.to_u32_saturating().unwrap() as usize);
     }
 }

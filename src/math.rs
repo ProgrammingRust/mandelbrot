@@ -1,13 +1,9 @@
 use rug::{Complex, Float};
 use rug::ops::CompleteRound;
 use crate::ImageInfo;
+use crate::output::smooth_colour_index;
 
-#[derive(Debug, Clone)]
-pub struct Iteration  {
-    pub n:   usize,
-    pub norm: Float,
-    pub z:   Complex
-}
+pub(crate) type Iteration = usize;
 
 /// Try to determine if `c` is in the Mandelbrot set, using at most `limit`
 /// iterations to decide.
@@ -27,13 +23,13 @@ pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Iteration
     let mut z_norm:Float = Float::with_val(img_info.precision, 0.0);
 
     let n = {
-        let mut result:Option<usize> = None;
+        let mut result:Option<Iteration> = None;
 
         for i in 0..max_iterations {
             z_norm = z.clone().norm().real().clone();
 
             if z_norm > four {
-                result = Some(i);
+                result = Some(i as Iteration);
                 break;
             }
             z = z.square() + c;
@@ -42,16 +38,9 @@ pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Iteration
         result
     };
 
-    return match n {
-        None => { None }
-        Some(n) => {
-            Some(Iteration {
-                n,
-                norm: z_norm,
-                z
-            })
-        }
-    }
+    let palette_index = smooth_colour_index(img_info, n, z_norm);
+
+    return  palette_index;
 }
 
 /// Given the row and column of a pixel in the output image, return the
