@@ -5,6 +5,13 @@ use crate::output::smooth_colour_index;
 
 pub(crate) type Pixel = u16;
 
+#[derive(Debug, Clone)]
+pub struct Iteration  {
+    pub n:   usize,
+    pub norm: Float,
+    pub z:   Complex
+}
+
 /// Try to determine if `c` is in the Mandelbrot set, using at most `limit`
 /// iterations to decide.
 ///
@@ -13,7 +20,7 @@ pub(crate) type Pixel = u16;
 /// origin. If `c` seems to be a member (more precisely, if we reached the
 /// iteration limit without being able to prove that `c` is not a member),
 /// return `None`.
-pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Pixel> {
+pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Iteration> {
     let precision = img_info.precision;
     let max_iterations = img_info.iterations;
 
@@ -38,9 +45,16 @@ pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Pixel> {
         result
     };
 
-    let palette_index = smooth_colour_index(img_info, n, z_norm);
-
-    return  palette_index;
+    return match n {
+        None => { None }
+        Some(n) => {
+            Some(Iteration {
+                n: n as usize,
+                norm: z_norm,
+                z
+            })
+        }
+    }
 }
 
 /// Given the row and column of a pixel in the output image, return the

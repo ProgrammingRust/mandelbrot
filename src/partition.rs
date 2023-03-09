@@ -178,16 +178,20 @@ pub(crate) unsafe fn subdivide_partition( p: &Partition) -> Vec<Partition>  {
 
 unsafe fn process_point(image_info: &ImageInfo, x: usize, y: usize, pixels: *mut &mut [Option<Pixel>]) -> Option<Pixel> {
     let point = pixel_to_point((x, y), image_info);
-    let escape_time = escape_time(image_info, &point);
+    let iteration = escape_time(image_info, &point);
 
-    let result =  match &escape_time {
+    let pixel:Option<Pixel> =  match &iteration {
         None => { None }
-        Some(it) => { Some(*it)}
+        Some(iteration) => {
+            let palette_index = smooth_colour_index(image_info, iteration);
+
+            Some(palette_index as Pixel)
+        }
     };
 
-    set_pixel(escape_time, x, y, pixels, image_info);
+    set_pixel(pixel, x, y, pixels, image_info);
 
-    return result;
+    return pixel;
 }
 
 unsafe fn set_pixel(value: Option<Pixel>, x: usize, y: usize, pixels: *mut &mut [Option<Pixel>], image_info: &ImageInfo) {

@@ -3,7 +3,7 @@ use std::ops::Div;
 use image::{ImageBuffer, Luma, Rgb, RgbImage};
 use rug::Float;
 use crate::ImageInfo;
-use crate::math::Pixel;
+use crate::math::{Iteration, Pixel};
 
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
@@ -36,24 +36,22 @@ pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels:
     Ok(())
 }
 
-pub(crate) fn smooth_colour_index(image_info: &ImageInfo, n: Option<Pixel>, norm: Float) -> Option<Pixel> {
-    if n.is_none() {
-        return None;
-    } else {
-        let prec = image_info.precision;
-        let n = Float::with_val(prec, n.unwrap());
+pub(crate) fn smooth_colour_index(image_info: &ImageInfo, it: &Iteration) -> Pixel {
 
-        // The code below computes: nSmooth := float64(n + 1) - math.Log( math.Log( cmplx.Abs(zn) ))/math.Log(2)
-        // See: http://linas.org/art-gallery/escape/smooth.html
+    let prec = image_info.precision;
 
-        let ln_2 = Float::with_val(prec, 2.0).ln();
+    let n = Float::with_val(prec, it.n);
 
-        // log_log_abs = ln(ln(abs))/ln(2)
-        let log_log_abs = norm.clone().ln().ln().div(ln_2);
+    // The code below computes: nSmooth := float64(n + 1) - math.Log( math.Log( cmplx.Abs(zn) ))/math.Log(2)
+    // See: http://linas.org/art-gallery/escape/smooth.html
 
-        // n_smoothed = (iteration.n + 1) - logAbs
-        let n_smoothed:Float = (n + 1) - log_log_abs;
+    let ln_2 = Float::with_val(prec, 2.0).ln();
 
-        return Some(n_smoothed.to_u32_saturating().unwrap() as Pixel);
-    }
+    // log_log_abs = ln(ln(abs))/ln(2)
+    let log_log_abs = it.norm.clone().ln().ln().div(ln_2);
+
+    // n_smoothed = (iteration.n + 1) - logAbs
+    let n_smoothed:Float = (n + 1) - log_log_abs;
+
+    return n_smoothed.to_u32_saturating().unwrap() as Pixel;
 }
