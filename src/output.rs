@@ -2,13 +2,14 @@ use std::cell::SyncUnsafeCell;
 use std::ops::Div;
 use image::{ImageBuffer, Luma, Rgb, RgbImage};
 use rug::Float;
+use crate::errors::MyError;
 use crate::ImageInfo;
 use crate::math::{Iteration, Pixel};
 
 /// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
 /// file named `filename`.
 pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels: &mut SyncUnsafeCell<&mut [Option<Pixel>]>)
-                          -> Result<(), std::io::Error>
+                          -> Result<(), MyError>
 {
     let pixels = pixels.get_mut();
 
@@ -31,7 +32,7 @@ pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels:
         }
     }
 
-    image_buffer.save(&image_info.filename).expect("Image error");
+    image_buffer.save(&image_info.filename)?;
 
     Ok(())
 }

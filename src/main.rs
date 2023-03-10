@@ -8,6 +8,7 @@ mod math;
 mod output;
 mod splines;
 mod palette;
+mod errors;
 
 use std::cell::SyncUnsafeCell;
 
@@ -15,16 +16,9 @@ use rug::Complex;
 use crate::cmdline::parse_cmdline_args;
 use crate::output::write_image;
 use crate::partition::{Partition, process_partition};
-use thiserror::Error as ThisError;
 use crate::math::Pixel;
 use crate::palette::generate_palette;
-
-#[derive(ThisError, Debug)]
-pub enum MyError {
-    /// Unrecoverable logic errors.
-    #[error("Internal error: {0}")]
-    InternalError(String),
-}
+use crate::errors::MyError;
 
 
 /// Represents the image to be worked on.
@@ -52,10 +46,13 @@ struct ImageInfo {
 
     /// Filename for saving the output.
     filename: String,
+
+    /// Number of CPU cores to use.
+    num_cores: usize,
 }
 
-fn main() {
-    let image_info = parse_cmdline_args();
+fn main() -> Result<(), MyError> {
+    let image_info = parse_cmdline_args()?;
 
     let root_partition = Partition {
         x_offset: 0,
@@ -68,10 +65,26 @@ fn main() {
     let mut pixels = SyncUnsafeCell::new(pixels_vec.as_mut_slice());
 
     unsafe {
-        rayon::scope(|_| process_partition(&image_info, &root_partition, &pixels) );
+        create_pool(image_info.num_cores)?.install(|| {
+            rayon::scope(|_| process_partition(&image_info, &root_partition, &pixels) );
+        });
+
     }
 
     let palette = generate_palette(image_info.iterations);
 
-    write_image(&image_info, palette, &mut pixels);
+    write_image(&image_info, palette, &mut pixels)?;
+
+    Ok( () )
+}
+
+pub fn create_pool(num_cores: usize) -> Result<rayon::ThreadPool, MyError> {
+
+    match rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cores)
+        .build()
+    {
+        Err(e) => Err(MyError::InternalError(e.to_string())),
+        Ok(pool) => Ok(pool),
+    }
 }

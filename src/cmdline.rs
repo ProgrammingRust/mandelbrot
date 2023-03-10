@@ -4,6 +4,10 @@ use std::process::exit;
 use clap::Parser;
 use rug::{Complex, Float};
 use crate::ImageInfo;
+use lazy_static::lazy_static;
+use regex::Regex;
+use crate::errors::MyError;
+
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -21,7 +25,7 @@ struct Cli {
 
     /// The maximum number of iterations to run before bailing out.
     #[arg(short,long, default_value_t=1024)]
-    iterations:usize,
+    iterations:u16,
 
     /// x value in the complex plane of the center of the image
     #[arg(short,long, default_value_t=String::from("-0.7"))]
@@ -42,13 +46,17 @@ struct Cli {
     /// Vertical resolution of the overall image.
     #[arg(long, default_value_t=1120)]
     height:usize,
+
+    /// Number of cores to use.  Either a number, or a fraction like this: "N/2" which indicates half the cores available.
+    #[arg(long, default_value_t=String::from("N/2"))]
+    num_cores:String,
     
-    /// Amount to scale the palette index by. Larger numbers should produce greater color variation.
-    #[arg(short,long, default_value_t=255.0)]
-    paletteScaleFactor:f64
+    // Amount to scale the palette index by. Larger numbers should produce greater color variation.
+    //#[arg(short,long, default_value_t=255.0)]
+    //paletteScaleFactor:f64
 }
 
-pub(crate) fn parse_cmdline_args() -> ImageInfo {
+pub(crate) fn parse_cmdline_args() -> Result<ImageInfo, MyError> {
     let cli = Cli::parse();
 
     /* If the numDigits parameter wasn't specified, set numDigits to a super high value temporarily so we can
@@ -123,8 +131,8 @@ pub(crate) fn parse_cmdline_args() -> ImageInfo {
 
             let mut precision = b as u32;
 
-            if precision < 20 {
-                precision = 20;
+            if precision < 53 {
+                precision = 53;
             }
 
             precision
@@ -138,14 +146,53 @@ pub(crate) fn parse_cmdline_args() -> ImageInfo {
     println!("lower_right:\t({}, {})", x_max, y_max);
     */
 
-    return ImageInfo {
+    let num_cores = parse_num_cores(&cli.num_cores)?;
+
+    return Ok( ImageInfo {
         width: cli.width,
         height: cli.height,
         cplx_upper_left: Complex::with_val(precision, (x_min, y_min)),
         cplx_lower_right: Complex::with_val(precision, (x_max, y_max)),
         precision,
-        iterations: cli.iterations,
+        iterations: cli.iterations as usize,
         filename: cli.filename,
+        num_cores,
+    });
+}
+
+fn parse_num_cores(input: &str) -> Result<usize, MyError> {
+    lazy_static! {
+        static ref RE: Regex =
+            Regex::new("(?P<numerator>[A-Za-z]/)?(?P<denominator>[1-9][0-9]*)").unwrap();
     }
 
+    if RE.is_match(input) {
+        let num_cores: usize = num_cpus::get();
+
+        let numerator = RE
+            .captures(input)
+            .and_then(|cap| cap.name("numerator").map(|s| s.as_str()));
+
+        let denominator = RE
+            .captures(input)
+            .and_then(|cap| cap.name("denominator").map(|s| s.as_str()));
+
+        let d = denominator.unwrap().parse::<usize>().unwrap();
+
+        let user_requested: usize = match numerator {
+            None => d,
+            Some(_) => num_cores / d,
+        };
+
+        let actual = user_requested.clamp(1, num_cores);
+
+        if numerator.is_none() && actual != user_requested {
+            eprintln!("Requested {} cores. Actual # of cores is: {}. Using {} cores instead.",
+                      input, num_cores, actual);
+        }
+
+        return Ok(actual);
+    } else {
+        return Err(MyError::InvalidArgument("Invalid format for num_cores argument.".to_string()) );
+    }
 }
