@@ -187,8 +187,7 @@ fn parse_num_cores(input: &str) -> Result<usize, MyError> {
         let actual = user_requested.clamp(1, num_cores);
 
         if numerator.is_none() && actual != user_requested {
-            eprintln!("Requested {} cores. Actual # of cores is: {}. Using {} cores instead.",
-                      input, num_cores, actual);
+            eprintln!("Requested {input} cores. Actual # of cores is: {num_cores}. Using {actual} cores instead.");
         }
 
         return Ok(actual);

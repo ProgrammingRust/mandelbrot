@@ -1,7 +1,6 @@
 use rug::{Complex, Float};
 use rug::ops::CompleteRound;
 use crate::ImageInfo;
-use crate::output::smooth_colour_index;
 
 pub(crate) type Pixel = u16;
 
@@ -45,16 +44,11 @@ pub(crate) fn escape_time(img_info: &ImageInfo, c: &Complex) -> Option<Iteration
         result
     };
 
-    return match n {
-        None => { None }
-        Some(n) => {
-            Some(Iteration {
-                n: n as usize,
-                norm: z_norm,
-                z
-            })
-        }
-    }
+    return n.map(|n| Iteration {
+        n: n as usize,
+        norm: z_norm,
+        z,
+    });
 }
 
 /// Given the row and column of a pixel in the output image, return the
@@ -96,6 +90,7 @@ pub(crate) mod tests {
                     precision: 40,
                     iterations: 255,
                     filename: "".to_string(),
+                    num_cores: 1,
                 }
             ),
             Complex::with_val(40, (-0.5, -0.75))

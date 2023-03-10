@@ -1,6 +1,6 @@
 use std::cell::SyncUnsafeCell;
 use std::ops::Div;
-use image::{ImageBuffer, Luma, Rgb, RgbImage};
+use image::{Rgb, RgbImage};
 use rug::Float;
 use crate::errors::MyError;
 use crate::ImageInfo;
@@ -20,14 +20,14 @@ pub(crate) fn write_image(image_info: &ImageInfo, palette: Vec<Rgb<u8>>, pixels:
     let black = Rgb::from([0,0,0]);
 
     for (x, y, pixel) in image_buffer.enumerate_pixels_mut() {
-        let iteration = pixels[(x + y * width) as usize].clone();
+        let iteration = pixels[(x + y * width) as usize];
 
 
         match iteration {
             None => { *pixel = black }
             Some(index_u16) => {
                 let index: usize = index_u16 as usize;
-                *pixel = palette[index.clamp(0, (palette.len() - 1) as usize )];
+                *pixel = palette[index.clamp(0, palette.len() - 1) ];
             }
         }
     }

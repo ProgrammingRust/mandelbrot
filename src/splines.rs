@@ -1,4 +1,6 @@
 // See: https://ruivieira.dev/monotonic-cubic-spline-interpolation-with-some-rust.html
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::get_first)]
 
 pub struct MonotonicCubicSpline {
     m_x: Vec<f64>,

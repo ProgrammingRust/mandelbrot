@@ -13,9 +13,9 @@ pub(crate) fn generate_palette(num_entries: usize) -> Vec<Rgb<u8>> {
     let y_green = vec![0.0, 1.0, 1.0, 0.677018634, 0.026915114, 0.039337474].iter().map(|y| y * 255.0).collect::<Vec<f64>>();
     let y_blue = vec![0.399585921, 1.0, 1.0, 0.022774327, 0.014492754, 0.399585921].iter().map(|y| y * 255.0).collect::<Vec<f64>>();
 
-    let red_spline = MonotonicCubicSpline::partial(x.clone(), y_red.clone());
-    let green_spline = MonotonicCubicSpline::partial(x.clone(), y_green.clone());
-    let blue_spline = MonotonicCubicSpline::partial(x.clone(), y_blue.clone());
+    let red_spline = MonotonicCubicSpline::partial(x.clone(), y_red);
+    let green_spline = MonotonicCubicSpline::partial(x.clone(), y_green);
+    let blue_spline = MonotonicCubicSpline::partial(x, y_blue);
 
     let mut result:Vec<Rgb<u8>> = vec![];
 
